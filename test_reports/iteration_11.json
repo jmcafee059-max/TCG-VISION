@@ -1,0 +1,43 @@
+{
+  "summary": "Iter 11 accuracy-tuning verification. Backend regression: 18/18 PASS (100%) — /api/health, /api/scan-card (Pikachu Base Set 58 identified=true, name='Pikachu', number='058/102' contains 58, confidence=1.0, price.market=$7.76, price_source='JustTCG · pokemon · Normal', language='english'), /api/scan-card non-card + blurry both correctly return identified=false with reasoning, /api/voice/transcribe, /api/voice/chat (with & without context), /api/history GET+DELETE (no _id leak), full /api/collection CRUD + set/binder grouping + summary sorting, /api/card/graded-prices (10-grade shape + chase-card sanity), /api/card/grade-estimate (image + bad-payload 4xx). Vision model swap to gemini-3.1-pro-preview works; latency ~15s on Pikachu (within expected 10–20s trade-off). Frontend live-render verified at /settings on mobile viewport: 'Gemini 3 Pro' visible under Models & Data, confidence segment shows 30%/40%/55%/70% exactly (85% absent, count=0), default selected=40%. Static code review confirms all 6 iter-11 changes at exact lines: (1) VISION_MODEL='gemini-3.1-pro-preview' [server.py:158]; (2) prompt relaxed — number=null now allowed, only rejects when NAME unreadable [server.py:169, 183-185]; (3) fetch_price_and_meta strict=True when want_num is null and variants have prices [server.py:378-387]; (4) DEFAULT_SETTINGS.confidenceThresholdPct=40 + KEY='app_settings_v2' [settings.ts:16,20]; (5) captureAndScan resize 900px + compress 0.7 [index.tsx:171-172]; (6) instantLock rule `const instantLock = conf >= 0.7; const matches = instantLock || nameMatch;` [index.tsx:193-194]; (7) CONFIDENCE_OPTIONS=[30,40,55,70] + 'Vision model: Gemini 3 Pro' [settings.tsx:35,208].",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/scan-card", "issue": "Server-side confidence gate is hard-coded at conf_val < 0.55 (server.py:465) — this pre-dates iter 11's more permissive stance. Frontend default is now 40%, but the backend will still return identified=false for any 0.40–0.54 confidence read regardless of user setting. Consider lowering backend gate to 0.40 (or making it a request param) to fully honor the 'less aggressive' spec. Currently harmless since a conf<0.55 read is unlikely to be a correct ID anyway, but the frontend 30%/40% options give a false impression that the pipeline honors them."},
+      {"endpoint": "/api/scan-card", "issue": "fetch_english_image (pokemontcg.io) is best-effort and returned image_url=None on one live call (was populated on pytest run seconds later). This is intermittent upstream flakiness; app handles None gracefully. test_scan_pikachu asserts image_url is present, so may flake occasionally. Consider retry-with-backoff or dropping the assertion to `is None or startswith('http')`."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_collection.py",
+    "/app/backend/tests/test_graded_and_grade.py",
+    "/app/test_reports/pytest/iter11_regression.xml",
+    "/app/test_reports/pytest/iter11_collection_graded.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Lower backend confidence gate at server.py:465 from 0.55 to 0.40 (or plumb settings.confidenceThresholdPct through the scan request) so the frontend 30%/40% segments actually change pipeline behavior. Without this, selecting 30% on Settings has no user-visible effect versus 55% for reads in the 0.40–0.54 band.",
+    "OPTIONAL: Add small retry-on-None inside fetch_english_image to reduce intermittent image_url=null on Pikachu-style English cards."
+  ],
+  "critical_code_review_comments": [
+    "VISION_MODEL revert to gemini-3.1-pro-preview is clean single-line change; used by both /api/scan-card and /api/card/grade-estimate. Cost/latency trade-off is real (Pikachu identify ~15s in this run vs ~5s on flash) — main agent should validate device UX still feels responsive with the auto-scan cadence.",
+    "Prompt change is well-formed: numbered priority list makes 'name is the anchor, number is optional' the primary rule. Katakana crib-sheet is preserved. detected=false is now scoped specifically to 'cannot read the printed NAME', which matches user complaint.",
+    "fetch_price_and_meta strict-logic fallback (line 386-387) — `strict = bool(best.get('variants'))` when no number and no set are known — is correct in spirit but slightly aggressive: it will surface a price for ANY name match with variants, which for a Pokemon like 'Pikachu' (dozens of printings) may pick a non-representative card. The ranking function still boosts number/set/price signal, so top-ranked is usually the most-traded printing. Acceptable given the goal is 'return a price rather than nothing'.",
+    "Frontend instant-lock threshold 0.7 combined with backend gate 0.55 means a card returned as identified=true always has conf≥0.55, and instant-lock triggers when conf≥0.70. For 0.55–0.69 confidence reads, the app still waits for a second confirming frame (nameMatch) — good conservative default.",
+    "Storage key bump to app_settings_v2 is the correct migration approach; users won't be stuck on the old 55% default. No migration code needed since loadSettings falls back to DEFAULT_SETTINGS on absent key.",
+    "No deprecated Expo packages detected (no expo-av / expo-barcode-scanner / expo-background-fetch); uses expo-camera, expo-audio, expo-image-manipulator — all current.",
+    "All interactive elements retain testIDs (scanner-screen, manual-scan-btn, voice-pill-btn, add-to-collection-btn, price-market, price-source, lock-badge, etc.). Test surface remains intact."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "Code + live-render verified 100%; camera-feed lock behavior remains unautomatable in web preview but code path documented"},
+  "seed_data_creation": "None. test_collection.py self-manages via _reset() teardown.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 11 tuned accuracy — vision model reverted to gemini-3.1-pro-preview, prompt allows number=null, frontend default confidence 40%, instant-lock at conf>=0.7, upload bumped to 900px/0.7. All 18 backend regression tests green. Live Pikachu Base 58 returns: name=Pikachu, number=058/102, conf=1.0, price.market=$7.76, source='JustTCG · pokemon · Normal'. Note: backend server.py:465 still has hardcoded 0.55 gate — flagged as minor issue but not blocking. If future iter needs to genuinely honor 30%/40% Settings segments end-to-end, main agent must plumb confidence threshold from frontend into scan-card request or lower the backend constant.",
+  "rca_of_issue": "N/A — no bugs. Verification-only review request. Only-latent finding is the backend 0.55 hardcoded gate is now stricter than the frontend default 40% and the new 30% segment option; documented as an optional follow-up."
+}

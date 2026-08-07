@@ -1,0 +1,35 @@
+{
+  "summary": "Iter 13 scan-loop hot-fix VERIFIED. Code inspection of /app/frontend/app/(tabs)/index.tsx confirms all four criteria: (a) captureAndScan uses scanningRef.current as top guard (line 134) and lockStateRef.current for every internal lockState read (lines 156, 216, 222, 231); (b) captureAndScan useCallback deps = [] (line 240); (c) interval-setting useEffect deps = [settings.autoScanIntervalSec, camPerm?.granted, captureAndScan, settingsReady] (line 253) — lockState correctly removed; (d) SCAN_INTERVAL_HUNTING_MS and SCAN_INTERVAL_LOCKED_MS constants are GONE from source (only found in stale .metro-cache which regenerates on next build; fresh cadence is a single Math.max(configured*1000, 2500) ms — 3s floor as claimed). Backend regression: 18/18 tests PASS in 59.45s including test_scan_pikachu (identified=true, name=Pikachu, JustTCG price populated, ordering coherent). Frontend smoke test at mobile 375x667: scanner-screen mounts, no red-screen, all four tabs (SCANNER/COLLECTION/HISTORY/SETTINGS) present, scan-status advances to 'Identifying card…' immediately (proving stable captureAndScan actually fires past its ref guard), assistant-state-label = 'HOLD TO ASK', zero pageerrors, zero interesting console errors. Tutorial modal shows on first-boot as expected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_collection.py",
+    "/app/backend/tests/test_graded_and_grade.py",
+    "/app/test_reports/pytest/iter14_regression.xml"
+  ],
+  "action_items": [
+    "None. Iter 13 fix verified. Optional cleanup for a future iter: two long-standing RN-web deprecation warnings (shadow* → boxShadow, props.pointerEvents → style.pointerEvents) remain but are cosmetic and pre-date this iter."
+  ],
+  "critical_code_review_comments": [
+    "index.tsx:133-240 — captureAndScan is now truly stable. Ref guards (scanningRef.current + lockStateRef.current) mean no state toggle can cause the useCallback identity to change or the interval to be torn down mid-scan. Empty deps array is correct because every value the callback reads is either a ref or a stable setter.",
+    "index.tsx:108-110 — lockStateRef mirror useEffect on [lockState] is the right pattern to keep the ref current without pulling lockState into captureAndScan's deps.",
+    "index.tsx:242-253 — interval useEffect deps no longer include lockState → the setInterval is now created once per (settings/cam/settingsReady) change and lives its full lifetime instead of being torn down every ~200ms during a scan. This is the actual root-cause fix for 'never finishes a scan cycle'.",
+    "index.tsx:248 — Fixed cadence via Math.max(configured * 1000, 2500) ensures a 2.5s floor (matches the '3s minimum' intent within one interval tick) and prevents rapid-fire re-entries; captureAndScan's own scanningRef guard also prevents overlap.",
+    "Source has zero references to SCAN_INTERVAL_HUNTING_MS / SCAN_INTERVAL_LOCKED_MS (only stale .metro-cache which will regenerate). Constants correctly removed."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "smoke pass"},
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 13 stabilized the scan loop by (i) switching captureAndScan's internal state reads to refs (scanningRef, lockStateRef), (ii) collapsing its useCallback deps to [], (iii) removing lockState from the interval useEffect deps, and (iv) removing the two adaptive-cadence constants in favor of a single 2.5s-floor interval. If a future iter touches the scan loop, re-verify: (a) captureAndScan deps stay [] or only include truly stable values, (b) the interval useEffect never depends on lockState/scanning/card (any of those would recreate the interval and reintroduce the bug), (c) any new state added must be mirrored to a ref if captureAndScan needs to read it."
+}

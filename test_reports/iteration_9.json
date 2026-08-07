@@ -1,0 +1,33 @@
+{
+  "summary": "Iter 9 CardDetailSheet + graded-prices/grade-estimate endpoints: 4/4 new endpoint tests + 14/14 regression tests = 18/18 backend PASS (100%). Frontend: CardDetailSheet opens correctly from both TOP VALUE price grid AND binder slots on Collection tab; renders card image, identity, RAW MARKET 3-tile row, 10-item GRADED SLAB grid with special styling on PSA 10 / PRISTINE / BLACK LABEL, AI-estimated disclaimer, and REMOVE FROM COLLECTION button. Close via 'detail-close-btn' and backdrop tap both work. Charizard Base Set 4/102 returned PSA 10 ~$12k (>$100 chase-card threshold satisfied) and correct 10 labels in exact order.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_graded_and_grade.py",
+    "/app/test_reports/pytest/iter9_graded.xml",
+    "/app/test_reports/pytest/iter9_regression.xml"
+  ],
+  "action_items": [
+    "Scanner card-panel-open tap could not be end-to-end automated (needs live camera + identified card in web preview). Code path is identical to Collection openDetail — same CardDetailSheet component wired in /app/frontend/app/(tabs)/index.tsx. Main agent should smoke-test manually on device.",
+    "Optional: Handle 402 budget_exceeded surface in CardDetailSheet — currently caught in fetchGradedPrices and shown as errMsg via userMessage; verified path exists but not exercised (LLM key active)."
+  ],
+  "critical_code_review_comments": [
+    "GradedPricesResponse labels order + count strictly match spec (10 items: PSA 10 GEM MT / PSA 9 MINT / PSA 8 NM-MT / BGS 10 PRISTINE / BGS 10 BLACK LABEL / BGS 9.5 GEM MINT / BGS 9 MINT / CGC 10 PRISTINE / CGC 10 PERFECT / CGC 9.5 MINT+). source='GPT-5.2 estimate' as required.",
+    "402 budget handling implemented in both graded-prices and grade-estimate endpoints with detail prefixed 'llm_budget_exceeded:' — frontend api.ts translates this to a user-friendly userMessage.",
+    "CardDetailSheet correctly re-fetches graded prices on visible/card change and clears state; loading/error/data branches all covered.",
+    "GradeTile special background regex /black label|pristine|10\\b/i matches PSA 10, BGS 10 PRISTINE, BGS 10 BLACK LABEL, CGC 10 PRISTINE, CGC 10 PERFECT — as visible in the screenshot with brand-tertiary background."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_graded_and_grade.py (new)"
+  ],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100% (Collection→Sheet flows verified; Scanner path un-automatable but code identical)"},
+  "seed_data_creation": "Seeded 2 cards (Charizard Base 4/102 $350, Pikachu Base 58/102 $7.76) via same-origin fetch; cleared via DELETE /api/collection at end of run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The AI graded price estimates are non-deterministic (GPT-5.2). Tests only assert structure + PSA10>100 for the Charizard chase card. If retesting, don't assert on exact values — assert on labels, order, and reasonable ranges."
+}

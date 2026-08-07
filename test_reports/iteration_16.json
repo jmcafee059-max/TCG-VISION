@@ -1,0 +1,39 @@
+{
+  "summary": "Iter 16 bug fix VERIFIED. Non-strict branch of /api/scan-card now returns the closest JustTCG match's name/set/number/image_url/price so the user can visually verify, with reasoning='Printing not fully confirmed …' and price_source ending in '· closest match'. Code review of server.py:498-545 confirms: else branch inside `if result:` populates name (m.get('name') or display_name), set_name (matched_set), number (matched_number), rarity, image_url, price (result['price']), price_source (…' · closest match'), reasoning ('Printing not fully confirmed (collector number was unclear)…'). Live E2E test (test_non_strict_closest_match) using a Pikachu image with the bottom collector-number strip blacked out successfully hit the non-strict path — response had price_source containing 'closest match', reasoning containing 'Printing not fully confirmed', and name/set_name/number/price.market all populated. fetch_english_image is now called with the JustTCG-matched card's number (server.py:483-492) inside try/except that swallows pokemontcg.io failures → image_url can be null but never crashes the scan. Pikachu Base 58 happy-path (strict branch) regression still green (test_scan_pikachu). Frontend chip: /app/frontend/app/(tabs)/index.tsx:582-588 renders <View testID='printing-warn-chip' style=[chip, chipWarn]> with text 'UNCONFIRMED PRINTING' when card.reasoning matches /printing not/i; styles.chipWarn (line 860-864) uses colors.warning border, styles.chipWarnText (line 865) uses warning color = amber. Chip only appears when non-strict — verified conditional. Full regression 20/20 GREEN across backend_test.py, test_iter16_non_strict.py, test_collection.py, test_graded_and_grade.py in ~54s. Frontend smoke: web preview loads at EXPO_PUBLIC_BACKEND_URL, no red screen, all 4 tabs render, no new errors (only pre-existing RN-web shadow*/pointerEvents deprecation warnings, non-blocking).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_iter16_non_strict.py",
+    "/app/backend/tests/test_collection.py",
+    "/app/backend/tests/test_graded_and_grade.py",
+    "/app/test_reports/pytest/iter16_regression.xml"
+  ],
+  "action_items": [
+    "(NONE required for iter 16 — bug fix is verified working.)",
+    "(PRE-EXISTING, cosmetic) Two RN-web deprecation warnings still noisy in console: shadow* → boxShadow, props.pointerEvents → style.pointerEvents. Not blocking."
+  ],
+  "critical_code_review_comments": [
+    "server.py:498-545 — else branch of `if result:` correctly populates name/set/number/image_url/price/price_source/reasoning from the closest JustTCG match `m`. price_source is built as `JustTCG · <game>[ · <printing>] · closest match` — the ' · closest match' suffix is a clean, greppable signal for the client. reasoning is a user-friendly string that reliably matches /printing not/i.",
+    "server.py:483-492 — fetch_english_image is wrapped in try/except and receives `preferred_number = result['match'].get('number')` when available, falling back to `ident.get('number')`. Any exception in the pokemontcg.io call sets image_url=None silently — this is the correct defensive posture given that upstream has been observed to 500 intermittently.",
+    "server.py:487-490 — image lookup is only attempted for `language == 'english'`; Japanese cards get image_url=None which is fine (JP art isn't on pokemontcg.io reliably anyway).",
+    "index.tsx:582-588 — chip is correctly conditional on `card.reasoning && /printing not/i.test(card.reasoning)`. testID='printing-warn-chip' present. Uses chipWarn style (amber border + amber text via colors.warning). Positioned inside the chipsRow alongside language/hp/confidence chips.",
+    "index.tsx:860-865 — chipWarn / chipWarnText styles are consistent with the rest of the chip styling and use the existing colors.warning token — no new color primitives added.",
+    "No 500/timeout risk added: the ONLY new external call in the non-strict path is fetch_english_image, which is already inside try/except."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "20/20 (100%) — includes test_non_strict_closest_match (new) which specifically validates the iter 16 bug fix by forcing the else branch via a doctored image with the number area blacked out",
+    "frontend": "smoke pass — home loads, no red screen, chip render logic verified via code inspection at index.tsx:582-588"
+  },
+  "seed_data_creation": "None. test_history_and_clear wipes /api/history at the end; test_collection.* wipes /api/collection.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 16 fix is complete and verified end-to-end. /api/scan-card non-strict path now returns a populated CardInfo (name/set/number/image/price) plus reasoning='Printing not fully confirmed …' and price_source ending in ' · closest match'. Frontend shows an amber 'UNCONFIRMED PRINTING' chip (testID='printing-warn-chip') on that reasoning string. New pytest file: /app/backend/tests/test_iter16_non_strict.py — reusable for future regression: it deliberately blacks out the bottom 12% of a Pikachu image to hide the collector number, forcing vision to return name-without-number and thereby triggering the closest-match branch. If a future iteration changes the reasoning wording, also update the frontend regex at index.tsx:582 to keep the chip in sync.",
+  "rca_of_issue": "N/A — this iteration verified a completed bug fix. Iter 15 issue was: non-strict branch returned a nearly-empty CardInfo (only reasoning populated) so the UI panel could not display photo/name/set/number/price for user verification. Iter 16 fix populates all those fields from the closest JustTCG match while keeping the reasoning warning + ' · closest match' price_source suffix as unambiguous signals to the UI. Repro (pre-fix): send a Pikachu image with the bottom collector number blacked out → non-strict branch → response body would have set_name/number/price all null with just reasoning. Repro (post-fix): same input → response has name='Pikachu', set_name populated, number populated, price.market populated, price_source contains 'closest match', reasoning contains 'Printing not fully confirmed'. Mitigation: apply defensive try/except around fetch_english_image so pokemontcg.io flakiness cannot crash the scan even in this new branch."
+}

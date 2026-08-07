@@ -1,0 +1,39 @@
+{
+  "summary": "Iter 21 (fetch_english_image robustness) VERIFIED. Backend: 22/22 tests pass. NEW iter21_image_reliability suite: 5/5 sequential /api/scan-card calls with Pikachu Base 58 image ALL returned image_url != null, name=Pikachu, number=058/102, and price=$7.35 (JustTCG). Latencies: 5.4s, 5.5s, 5.8s, 8.0s, 14.7s. Non-card 1x1 png still returns identified=false gracefully. Full regression 20/20 green across health, root, scan-pikachu strict, scan-non-card, scan-blurry, history, transcribe, voice-chat x2, collection CRUD x5, graded-prices x2, grade-estimate x2, iter16 non-strict x2. Code review of fetch_english_image at server.py:403-447 confirms all 4 robustness features are implemented correctly: (a) queries list built in priority order — name+number, then name+zero-padded-3-digit, then name-only [lines 408-414]; (b) pageSize=5 with orderBy=-set.releaseDate [line 422]; (c) 5xx retry-once via `if r.status_code >= 500: continue` inside a 2-iter attempt loop [line 424-425]; (d) prefer-number-match filter iterates data and picks card whose _num_key(c.number) == n [lines 430-437] before falling back to data[0]. Vision model still claude-sonnet-4-5 (VISION_MODEL at server.py:157-158, reused for grade-estimate at line 902). No frontend testing (per request).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter21_image_reliability.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_collection.py",
+    "/app/backend/tests/test_graded_and_grade.py",
+    "/app/backend/tests/test_iter16_non_strict.py",
+    "/app/test_reports/pytest/iter21_image.xml",
+    "/app/test_reports/pytest/iter21_regression.xml"
+  ],
+  "action_items": [
+    "(NONE) All 4 review items green. Image reliability fix confirmed working: 5/5 Pikachu Base 58 scans returned image_url and correct 058/102 number in a single test run. If future flakiness reappears at pokemontcg.io (they had ~10% empty-data responses historically), the new retry-once + multi-query fallback + prefer-number-match logic will mask it. Consider (optional/future) caching successful image_url lookups keyed by (name,number) in-memory to eliminate the upstream call entirely on repeat scans."
+  ],
+  "critical_code_review_comments": [
+    "server.py:403-447 fetch_english_image — Correctly implements spec: queries=[name+number, name+padded3, name-only]; pageSize=5; 2-attempt loop with 5xx retry; number-match preference before data[0] fallback. Uses `_num_key` helper to normalize number comparison so '58' matches '058' and vice versa. Timeout=8s per httpx call is reasonable.",
+    "server.py:497-508 — scan-card correctly passes both name AND number into fetch_english_image so number-preference logic is exercised.",
+    "server.py — Vision model unchanged (claude-sonnet-4-5). Grade-estimate and scan-card both use same VISION_MODEL constant so they stay in sync. ✓",
+    "Measured latencies 5.4-14.7s per scan (mean ~7.9s). One outlier at 14.7s is the last call; still under 20s threshold — likely upstream pokemontcg.io/JustTCG variance, not the retry loop (retry only triggers on 5xx which didn't occur)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter21_image_reliability.py (new — 2 tests, both PASS)"
+  ],
+  "success_rate": {
+    "backend": "22/22 (100%) — 2/2 iter21 image reliability (5x pikachu image_url always non-null; 1x1 png graceful) + 20/20 full regression across all pre-existing suites. Zero failures, zero skips.",
+    "frontend": "N/A — testing_type=backend only per review request."
+  },
+  "seed_data_creation": "None. Tests self-clean.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter 21 hardened /api/scan-card image lookup against upstream pokemontcg.io flakiness. Verified 5/5 (up from historical 3/3 spot-check and prior ~9/10 upstream reliability) sequential Pikachu Base 58 scans now return a populated image_url. If a future iter modifies fetch_english_image, keep the (a) multi-query fallback ordering, (b) number-match preference filter, (c) 5xx retry-once, and (d) pageSize=5 — all four are load-bearing. Frontend unchanged since iter 20 (no test needed per request scope). Next testing agent can reuse test_iter21_image_reliability.py for any future scan-card regression."
+}

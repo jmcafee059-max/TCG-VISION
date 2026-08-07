@@ -1,0 +1,44 @@
+{
+  "summary": "Iter 17 accuracy fix VERIFIED. /api/scan-card non-strict branch (server.py:522-540) is now correctly VISION-AUTHORITATIVE — it builds CardInfo from `ident.get(...)` fields (display_name, ident.set_hint, ident.number, ident.rarity, ident.hp) and does NOT pull name/set/number/rarity from the closest JustTCG match `m`. price is empty CardPrice(), price_source is None (not set), and reasoning is the exact string \"Collector number wasn't fully readable — showing the identified card without price to avoid a mismatch. Hold the card steady so the number at the bottom is in focus for the exact market price.\". Strict branch regression still returns JustTCG clean name/set/number + full price + price_source starting with 'JustTCG · pokemon' (validated via test_scan_pikachu). Updated /app/backend/tests/test_iter16_non_strict.py to the new correct contract: asserts price_source is None, price.market/low/mid/high all None, vision-authoritative name (Pikachu), reasoning contains 'Collector number wasn\\'t fully readable' AND 'Hold the card steady'. Live E2E on the non-strict path (bottom 14% blacked out to force number=null) passed the new assertions. Frontend: verified in /app/frontend/app/(tabs)/index.tsx that (a) `scannedThumb` state exists at line 90, (b) it is set to `data:image/jpeg;base64,${uploadB64}` at line 182 on every successful identification, (c) card panel thumbnail at line 545-547 uses `scannedThumb || card.image_url`, (d) detail sheet at line 536 passes `scannedThumb || card.image_url` as image_url — all four requirements satisfied. Frontend web preview loads clean at EXPO_PUBLIC_BACKEND_URL, no red screen, all 4 tabs render, onboarding shows Step 1/4. Full regression suite: 20/20 GREEN across backend_test.py (9), test_iter16_non_strict.py (2, updated), test_collection.py (5), test_graded_and_grade.py (4). One initial flake on test_scan_pikachu (image_url=None due to intermittent pokemontcg.io 6s timeout upstream); passed cleanly on retry. Console: pre-existing RN-web shadow*/pointerEvents deprecation warnings only, non-blocking.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_iter16_non_strict.py",
+    "/app/backend/tests/test_collection.py",
+    "/app/backend/tests/test_graded_and_grade.py",
+    "/app/test_reports/pytest/iter17_regression.xml"
+  ],
+  "action_items": [
+    "(NONE required for iter 17 — accuracy bug fix is verified working. Non-strict branch is vision-authoritative and price-free; strict branch still gets JustTCG clean data + price.)",
+    "(PRE-EXISTING, cosmetic) Two RN-web deprecation warnings still noisy in web console: shadow* → boxShadow, props.pointerEvents → style.pointerEvents. Not blocking; irrelevant on native builds.",
+    "(FLAKINESS NOTE for main agent) fetch_english_image has a 6s httpx timeout to api.pokemontcg.io — the endpoint is occasionally slow and returns None. Non-critical (image_url is best-effort and the frontend now uses scannedThumb as primary source), but if this ever becomes a strict-branch test flake, consider bumping the timeout to 10s or making the assertion tolerant."
+  ],
+  "critical_code_review_comments": [
+    "server.py:522-540 — non-strict branch correctly reads ONLY from `ident` (display_name, ident.set_hint, ident.number, ident.rarity, ident.hp). `m` (JustTCG match) is intentionally NOT dereferenced here. price=default empty CardPrice, price_source omitted (=None). This is the exact fix required by the review request.",
+    "server.py:502-520 — strict branch still uses m.get('name')/matched_set/matched_number/m.get('rarity') and returns result['price'] + price_source='JustTCG · <game>[ · <printing>]'. Full price populated. Pikachu Base 58 verified: name=Pikachu, number=58/102, price.market populated, price_source='JustTCG · pokemon · Holofoil' or similar.",
+    "server.py:536-539 — reasoning string uses a straight ASCII apostrophe in \"Collector number wasn't fully readable\" — the frontend regex/test must NOT use a curly quote when matching this string.",
+    "server.py:483-492 — fetch_english_image is inside try/except; still supplies image_url when available but is now DESIGNED to be best-effort since the frontend prefers scannedThumb (user's actual capture) anyway.",
+    "index.tsx:90 — `const [scannedThumb, setScannedThumb] = useState<string | null>(null)` present.",
+    "index.tsx:182 — `setScannedThumb(`data:image/jpeg;base64,${uploadB64}`)` fires ONLY inside the successful-identification block (line 180-183) so a failed scan doesn't overwrite the previous good thumb. Correct.",
+    "index.tsx:536, 545-547 — both the detail sheet payload AND the card panel <Image source> use `scannedThumb || card.image_url` in the same order. Consistent.",
+    "index.tsx thumb: fallback empty state (line 551-554) still renders when neither scannedThumb nor card.image_url exist. Correct."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter16_non_strict.py (rewrote assertions to the new vision-authoritative contract: no price, no price_source, name=Pikachu from vision, reasoning contains 'Collector number wasn\\'t fully readable' and 'Hold the card steady')"
+  ],
+  "success_rate": {
+    "backend": "20/20 (100%) after retry of one flaky pokemontcg.io upstream — the flake is upstream image lookup, not the scan-card logic itself",
+    "frontend": "smoke pass — home loads, no red screen, onboarding shows Step 1/4, scannedThumb wiring verified via code inspection at index.tsx:90, 182, 536, 545-547"
+  },
+  "seed_data_creation": "None. test_history_and_clear wipes /api/history at the end; test_collection.* wipes /api/collection after run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 17 accuracy fix is complete and verified. Contract summary: (1) STRICT path (number matched) → CardInfo built from JustTCG match `m` (name/set/number/rarity from m), price populated, price_source='JustTCG · <game>[ · <printing>]'. (2) NON-STRICT path (number couldn't be confirmed) → CardInfo built from vision `ident` (display_name/set_hint/number/rarity/hp), price=empty CardPrice(), price_source=None, reasoning='Collector number wasn\\'t fully readable — showing the identified card without price to avoid a mismatch. Hold the card steady so the number at the bottom is in focus for the exact market price.' (3) Frontend uses `scannedThumb` (data URI of user's own capture) as primary image, `card.image_url` as fallback. Test file /app/backend/tests/test_iter16_non_strict.py updated to this new contract. If future iterations change the reasoning wording, also update any frontend regex that depends on it (previous 'printing-warn-chip' logic if still present) and the test assertions in test_iter16_non_strict.py.",
+  "rca_of_issue": "Prior iteration bug (iter 15/16): when the vision model read the card's NAME but couldn't confirm the collector NUMBER, the backend was still populating the CardInfo.name/set/number from JustTCG's `closest match` — which could be a completely different printing/card if the fuzzy match landed on the wrong candidate (e.g. Pikachu 58/102 in one set vs. Pikachu 58 in another set). User reported 'wrong card' shown. Fix (this iter): in the else branch of `if result:` in /api/scan-card, keep the JustTCG lookup for image/price CONFIDENCE but do NOT copy m.get('name/set_name/number/rarity') into the response. Instead trust `ident` (vision) fields and refuse to show a price. Verified via test_non_strict_trusts_vision_no_price with a doctored Pikachu image (bottom 14% blacked out): response now has name='Pikachu' from vision, price all None, price_source None, reasoning contains the exact user-facing warning."
+}

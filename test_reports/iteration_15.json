@@ -1,0 +1,41 @@
+{
+  "summary": "Iter 14 CRITICAL bug fix VERIFIED. All six criteria pass. (1) VISION_MODEL=='gemini-3-flash-preview' in server.py:158 (reverted from gemini-3.1-pro-preview). Live /api/scan-card on Pikachu Base Set 58 returns identified=True, name='Pikachu', set_name='Base Set', number populated, price_source='JustTCG · pokemon · Holofoil', coherent low<=market<=high — end-to-end scan wall-clock ~7-9s (under 10s). (2) server.py:224-226 has the `if 'unable to process input image' in err or 'invalid_argument' in err:` branch inside identify_card_with_vision returning {detected: False, not_ready_reason: 'Bad image — retry with card centered'} instead of raising 502. (3) server.py:911-912 grade_estimate raises HTTPException(422, 'bad_image: could not process the captured frame — retry with card centered and in focus') on the same errors. (4) frontend/src/lib/api.ts:29-49 scanCard has AbortController + setTimeout(45000) with catch throwing Error carrying userMessage='Scan timed out — check connection and try again.' on AbortError. (5) Settings screen displays 'Gemini 3 Flash' (settings.tsx:208, live UI verified — 'Gemini 3 Pro' not present anywhere on the rendered page). (6) Regression /api/health, /api/voice/transcribe, /api/voice/chat (with & w/o context), /api/history CRUD, /api/collection CRUD (5 tests), /api/card/graded-prices (2 tests), /api/card/grade-estimate (2 tests), perf_test.test_scan_latency — 18/18 GREEN. One flaky failure in test_scan_pikachu on the `image_url` assertion because pokemontcg.io (external best-effort image lookup) returned HTTP 500 during the test window; the ACTUAL scan-card response was correct (card identified, price populated) so the iter-14 fix itself is not implicated.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/scan-card (image_url field)", "issue": "Best-effort image thumbnail from pokemontcg.io intermittently returns 500/timeouts, causing image_url=null on the scan response. Not a regression — this external service has always been fallback-only. Consider caching last-known image_url per (name, number) in Mongo, or falling back to null silently (already happens) but the pytest assertion is too strict. Suggest loosening test_scan_pikachu image_url assertion to `image_url is None or startswith('http')` OR adding a retry in fetch_english_image."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_collection.py",
+    "/app/backend/tests/test_graded_and_grade.py",
+    "/app/backend/tests/perf_test.py",
+    "/app/test_reports/pytest/iter15_regression.xml"
+  ],
+  "action_items": [
+    "(OPTIONAL, low-priority) Loosen test_scan_pikachu image_url assertion to tolerate None (pokemontcg.io is flaky and image_url is documented as best-effort in fetch_english_image). Alternatively add 1 retry with exponential backoff inside fetch_english_image.",
+    "(PRE-EXISTING, cosmetic) Two RN-web deprecation warnings still noisy in console: shadow* → boxShadow, props.pointerEvents → style.pointerEvents. Not blocking; ignore or clean up when touching those components."
+  ],
+  "critical_code_review_comments": [
+    "server.py:158 — VISION_MODEL correctly set to 'gemini-3-flash-preview'. Flash also used by grade_estimate at server.py:894 (both share VISION_MODEL constant → consistent).",
+    "server.py:214-227 — identify_card_with_vision try/except now case-insensitives the error message (`str(e).lower()`) and pattern-matches BOTH 'unable to process input image' AND 'invalid_argument'. Returning a synthetic {detected: False, not_ready_reason: ...} lets the existing not-detected branch at server.py:455-459 handle it cleanly — the UI shows the reasoning text and re-tries on the next auto-scan tick. Correct fix.",
+    "server.py:901-913 — grade_estimate mirrors the same defensive check but raises 422 instead of returning a fake success, which is the right semantic since the client explicitly requested a grade. The 422 will propagate to estimateGrade in api.ts:190-198 as a thrown Error — main agent should verify the grade-estimate UI shows a friendly message on 422 (didn't test that path here; needs a real bad image to reproduce).",
+    "api.ts:30-49 — AbortController pattern is correct. clearTimeout called in BOTH success and error paths. err.userMessage populated for the timeout case so UI can surface it. Only nit: on non-AbortError catch (e.g., network reset), userMessage is not set — UI will fall back to generic error handling. Acceptable.",
+    "api.ts:63-64 — for non-2xx (non-402) responses, err.userMessage='Scan failed — check connection.' is set consistently, so the scanner cannot get stuck on 'Identifying card…' text — the surrounding UI will replace the label with the error message (verified by the fact that the label state was correctly cleared to 'HOLD TO ASK' in iter14 smoke run).",
+    "settings.tsx:208 — 'Gemini 3 Flash' hardcoded string aligned with backend VISION_MODEL. If model ever gets bumped again, remember to update both this label AND perf_test.test_scan_latency's expected latency budget."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "18/19 (94.7%) — 1 flaky failure on pokemontcg.io external image lookup, not iter-14 related", "frontend": "smoke pass — settings shows 'Gemini 3 Flash', all 4 tabs, no page errors"},
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 15 verified the iter 14 vision-model rollback (Pro → Flash) + graceful 'Unable to process input image' handling in both /api/scan-card and /api/card/grade-estimate + frontend 45s AbortController timeout in scanCard. The scanner can no longer get stuck on 'Identifying card…'. Only regression watchpoint: test_scan_pikachu asserts image_url populated from pokemontcg.io — that upstream is intermittently 500-ing, so treat that single assertion as flaky (retry, or loosen). Actual scan/identify/price flow works. If a future iter changes VISION_MODEL again, update settings.tsx:208 label to match, and re-benchmark scan-latency in perf_test.py.",
+  "rca_of_issue": "N/A — this iteration was a verification pass; iter 14 fix confirmed working."
+}

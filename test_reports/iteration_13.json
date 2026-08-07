@@ -1,0 +1,36 @@
+{
+  "summary": "Iter 12 BUG FIX verification PASS. Code inspection of /app/frontend/app/(tabs)/index.tsx confirms: (a) `lastScanEmptyRef` fully removed — zero references in the file; (b) the ONLY frame-similarity skip is at line 151, correctly guarded by `lockState === 'locked' && sim >= FRAME_SIMILARITY_THRESHOLD`; (c) no early-return branch exists for the non-locked path — remaining `lockState !== 'locked'` checks at lines 213/221/230 only update state (setLockState/setStatusMsg), they do not return. The stuck 'no card detected' scan-blocker is genuinely gone. Backend regression: 18/18 tests PASS (one flaky Cloudflare 502 on heavily-blurred image cleared on retry — same behavior noted in iter 11.1/12). Frontend smoke test confirms scanner-screen loads without red-screen; scan-status renders 'Identifying card…' proving captureAndScan() actually runs past the guard when not locked; manual-scan-btn present and tappable; assistant-state-label = 'HOLD TO ASK'. Only console warnings are pre-existing style deprecations (shadow*/pointerEvents) unrelated to this iter.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/scan-card", "issue": "Flaky Cloudflare 502 on heavily-degraded input images (vision model >100s > CF edge timeout). Retry succeeds. Pre-existing, not introduced by iter 12."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_collection.py",
+    "/app/backend/tests/test_graded_and_grade.py",
+    "/app/test_reports/pytest/iter13_regression.xml"
+  ],
+  "action_items": [
+    "None. Iter 12 bug fix is verified correct by both code inspection and live behavior (scan-status advances to 'Identifying card…' immediately on load, proving the loop is not blocked)."
+  ],
+  "critical_code_review_comments": [
+    "index.tsx:151 — the surviving guard is unambiguous: `if (lockState === 'locked' && sim >= FRAME_SIMILARITY_THRESHOLD)`. No way to short-circuit while hunting.",
+    "index.tsx:213/221/230 — three `lockState !== 'locked'` blocks are pure state-update statements (lastResultRef.current = null; setLockState('scanning')) and do NOT contain `return`. Safe.",
+    "Console shows two pre-existing RN-web deprecation warnings only: 'shadow*' style props → migrate to boxShadow; props.pointerEvents → style.pointerEvents. Non-blocking cosmetic cleanup for a future iter (not introduced here)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (18/18 after 1 retry of flaky CF timeout)", "frontend": "smoke pass"},
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 12 removed the accidental scan-blocker (lastScanEmptyRef + un-guarded second frame-skip). Verified by grep (0 refs), by reading the sole remaining skip at line 151, and by live UI showing scan-status advancing past the guard. Backend unchanged since iter 11.1 and remains fully green. If iter 13+ modifies the scan loop again, re-check that no early `return` sneaks in for the non-locked path.",
+  "rca_of_issue": "Root cause (from iter 11 introduced regression): `lastScanEmptyRef` was set to true after any empty-result frame, then a second frame-similarity block returned early whenever the ref was true AND frames looked similar — but 'similar' is common when the phone is held still, so the loop got permanently stuck at 'no card detected' with no AI call ever retriggered. Fix: delete the ref and the second guard entirely; keep only the locked+steady skip which is safe because a locked card is already displayed. Verified via UI (status text advances) and code inspection."
+}

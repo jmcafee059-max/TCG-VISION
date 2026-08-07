@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 5 — Frontend features FULLY VERIFIED. Backend regression BLOCKED by EMERGENT_LLM_KEY budget exceeded (litellm.BadRequestError: Max budget: 1.0, Current cost: 1.10). Only 4/9 backend tests pass — the 5 failing tests are ALL AI-call blocked (test_scan_pikachu, test_scan_non_card, test_scan_blurry_low_quality, test_voice_chat_with_context, test_voice_chat_empty_context) with identical 'Budget has been exceeded' upstream OpenAI/Gemini error surfacing as HTTP 502 from FastAPI (also seen as Cloudflare 502 on the public URL). NOT a code regression. FRONTEND (all iter-5 asks verified): (1) Floating yellow mic button REMOVED — 0 instances of mic-hold-btn in DOM. Top voice pill (data-testid=voice-pill-btn) is the sole voice trigger with press-in/press-out handlers. (2) Bottom info panel is flush to tab bar — cardPanel has borderBottomWidth:0 (index.tsx:588) and bottomWrap uses paddingBottom:insets.bottom (index.tsx:334). Visually confirmed via screenshot — 'Awaiting Card…' panel sits flush above the tab bar. (3) Settings screen is fully interactive AND persistent: SegRow for Auto-scan (0/3/5/10), Min confidence (40/55/70/85%), TTS voice (nova/alloy/echo/onyx/shimmer/sage/fable); SwitchRow for Haptics + Voice enabled; Show tutorial re-opens the tutorial modal. Selections update highlighted option and immediately persist to localStorage key 'app_settings_v1' (verified stored value: {\"autoScanIntervalSec\":0,\"voiceEnabled\":false,\"ttsVoice\":\"alloy\",\"confidenceThresholdPct\":70,\"hapticsEnabled\":false}). Values survive page reload. (4) Scanner honors settings live via useSettings subscriber pattern: with Auto-scan set to OFF the auto-scan-indicator borderColor renders as rgb(46,46,46) (default border) instead of brand yellow; with Voice-enabled OFF the pill label reads 'VOICE OFF' and pill opacity is 0.5. First-boot tutorial gating still works (localStorage 'tutorial_seen'). Show-tutorial row from Settings correctly re-opens the tutorial modal. Backend price-accuracy code path was code-reviewed: server.py:_rank_candidate now weights number_match at 60 (line 234) vs 40 for name; fetch_price_and_meta returns strict flag (line 298); /api/scan-card returns price=null with an explanatory reasoning containing 'Exact set/number match not found' when non-strict (lines 425-442). Runtime validation of the price-accuracy path is blocked by the LLM budget.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "/api/scan-card and /api/voice/chat", "issue": "EMERGENT_LLM_KEY budget exceeded — upstream returns 'litellm.BadRequestError: OpenAIException - Budget has been exceeded! Current cost: 1.10, Max budget: 1.0'. Blocks 5/9 backend tests. Public URL surfaces this as Cloudflare 502. Not a code regression — key budget needs top-up before regression can be re-run.", "priority": "CRITICAL"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "index.tsx pointerEvents", "issue": "RN-Web console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents' at topPillWrap (index.tsx:269) and bottomWrap (index.tsx:334). Non-blocking on native but should migrate to style.pointerEvents."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Top up / raise EMERGENT_LLM_KEY budget (currently exceeded at $1.10 vs $1.00 cap) so /api/scan-card and /api/voice/chat can be regression-tested end-to-end.",
+    "Once budget restored, re-run: `cd /app/backend && pytest tests/backend_test.py -v` to validate strict price-match path with English Pikachu Base Set (number 58) — the code path exists and reviews as correct.",
+    "(Nit) Migrate pointerEvents prop to style.pointerEvents in index.tsx:269, 334 to silence RN-Web deprecation warnings."
+  ],
+  "critical_code_review_comments": [
+    "server.py:234 — number_match weight increased to 60 (was 30) correctly makes card number the dominant ranking signal, preventing set/name near-matches from returning wrong-printing prices.",
+    "server.py:277-290 — strict flag = number_match OR (no number read AND set_match). Sensible; if the vision model can't read the number the code falls back to set-hint matching rather than showing arbitrary prices.",
+    "server.py:406-442 — non-strict branch returns identified=true with price fields left null and a human-readable reasoning explaining what was found instead. Matches the iter-5 requirement.",
+    "settings.ts uses a module-level `current` + listeners Set so Scanner re-renders when Settings screen mutates — verified live: toggling voice-enabled in Settings then returning to Scanner immediately shows 'VOICE OFF' pill; toggling Auto-scan to 0 immediately removes the brand border on auto-scan-indicator.",
+    "settings.ts:23 loadSettings reads storage.getItem<string>(KEY,'') — the storage utility JSON-parses once, then loadSettings JSON.parses again. Works correctly because storage.setItem also JSON.stringifies once and the value the app writes is already a JSON string (double-encoded on disk). NOTE for future testers: pre-seeding localStorage from Playwright must double-stringify (JSON.stringify(JSON.stringify(obj))) to match this format, otherwise the loader silently falls back to defaults.",
+    "index.tsx:271-297 voice pill Pressable uses onPressIn/onPressOut with disabled={!settings.voiceEnabled} — matches iter-5 requirement of press-and-hold; no floating mic anywhere in the tree.",
+    "index.tsx:334, 559-589 bottom panel geometry: bottomWrap positioned bottom:0 with paddingBottom:insets.bottom; cardPanel has borderBottomWidth:0. Flush against tab bar as required."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "44% (4/9 — 5 failures all upstream LLM budget, not code)", "frontend": "100% (all iter-5 asks visually + functionally verified via Playwright)"},
+  "seed_data_creation": "None — only DELETE /api/history run at end of history test; DB left empty.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend URL: https://tcg-vision-ai.preview.emergentagent.com. EMERGENT_LLM_KEY budget is currently exceeded ($1.10 vs $1.00) — regression suite will 502 on scan-card/voice-chat until top-up; /api/health, /api/history CRUD, and /api/voice/transcribe (whisper-1) continue to pass. Frontend testIDs (iter-5): scanner-screen, voice-pill-btn (press-and-hold, no floating mic), assistant-state-label ('HOLD TO ASK' | 'VOICE OFF' | 'LISTENING…' | 'THINKING…' | 'SPEAKING…'), auto-scan-indicator (borderColor rgb(255,184,0) when active, rgb(46,46,46) when OFF), scan-status, manual-scan-btn, card-name, price-market, no-price-msg, price-source. Settings testIDs: settings-screen, auto-scan-seg / auto-scan-seg-{0|3|5|10}, confidence-seg / confidence-seg-{40|55|70|85}, haptics-switch, voice-enabled-switch, tts-voice-seg / tts-voice-seg-{nova|alloy|echo|onyx|shimmer|sage|fable}. Persistence key: 'app_settings_v1' (double-JSON-encoded on disk).",
+  "rca_of_issue": "Root cause of 5 backend test failures: shared EMERGENT_LLM_KEY hit its $1.00 monthly/session budget cap (LiteLLM raises OpenAIException, wrapped by FastAPI as HTTPException 502). Reproduction: `curl -X POST http://localhost:8001/api/scan-card -H 'Content-Type: application/json' -d '{\"image_base64\":\"<any-b64>\"}'` returns `{\"detail\":\"vision_error: ... Budget has been exceeded! Current cost: 1.10, Max budget: 1.0\"}`. Mitigation: main agent should escalate to raise the key's budget cap; no code change required."
+}

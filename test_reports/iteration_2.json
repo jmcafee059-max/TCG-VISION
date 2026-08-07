@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 2 — all 8 backend tests PASS (100%) and all frontend flows verified (100%). Both critical items from iter 1 are fixed: (1) /api/voice/transcribe now returns 200 with {text:''} for a 1s silent WAV (file-handle fix confirmed), (2) /api/scan-card returns coherent JustTCG price data with language field populated. Pikachu Base 58 image identified as english Pikachu with price_source starting 'JustTCG · pokemon', low<=market<=high, mid within range. Non-card 1x1 png returns identified=false with reasoning. Voice chat with card_context returns non-empty reply + audio_base64 + mime='audio/mpeg'. History returns list w/o _id and DELETE clears it. Frontend: Scanner tab shows camera preview (green web placeholder), HOLD MIC TO ASK pill, mic-hold-btn, Awaiting Card empty state. Settings tab shows 'JustTCG (EN + JP)' as Price source. History tab shows persisted scans (Hisuian Lilligant, Vileplume) with prices. Non-blocking: RN-Web deprecation warnings for shadow* and props.pointerEvents persist (already flagged iter 1).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "index.tsx micBtn / topPillWrap", "issue": "RN-Web console warnings persist: 'shadow*' style props deprecated (use boxShadow) — /app/frontend/app/(tabs)/index.tsx:680-683. props.pointerEvents deprecated (use style.pointerEvents) — /app/frontend/app/(tabs)/index.tsx:249,272,312. Non-blocking on native but noisy on web."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Optional cleanup: migrate `shadowColor/shadowOpacity/shadowOffset/shadowRadius` on styles.micBtn to `boxShadow` for RN-Web compat, and move `pointerEvents=\"box-none\"/\"none\"` from JSX props to `style={{ pointerEvents: 'box-none' }}` in index.tsx (lines 249, 272, 312). Warnings only — safe to ignore for native builds."
+  ],
+  "critical_code_review_comments": [
+    "server.py /api/voice/transcribe correctly uses `with open(tmp_path,'rb') as fh: stt.transcribe(file=fh, ...)` (line 409-410) — bug fixed.",
+    "server.py fetch_price_and_meta correctly falls back between game='pokemon' and 'pokemon-japan' and ranks candidates by name/number/set match (lines 234-264). Solid.",
+    "server.py _best_variant_price picks Near Mint > holofoil variant and derives low/mid/high from 30d stats with a market fallback (lines 151-191). Coherent ordering verified in test_scan_pikachu.",
+    "CardInfo.language field wired end-to-end: vision returns 'english'/'japanese'/'other' -> scan_card sets info.language -> frontend index.tsx renders JP chip when language !== 'english'.",
+    "server.py /api/scan-card inserts with own uuid _id and /api/history uses projection {_id:0}. No ObjectId leak — verified in test_history_and_clear.",
+    "server.py routes all under /api prefix, env-driven via os.environ[...] with no defaults for MONGO_URL/DB_NAME — fails fast if unset. Good."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py"
+  ],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% (scanner/history/settings render + JustTCG label present + testIDs verified)"},
+  "seed_data_creation": "test_scan_pikachu inserted a Pikachu scan; test_history_and_clear ran DELETE /api/history to purge. History tab observed later contained new scans (Hisuian Lilligant, Vileplume) from ongoing camera-preview auto-scans; no residual test data leaked.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend URL: https://tcg-vision-ai.preview.emergentagent.com. Pytest command: `cd /app/backend && pytest tests/backend_test.py -v --tb=short --junitxml=/app/test_reports/pytest/pytest_results.xml`. Tab labels are UPPERCASE ('SCANNER'/'HISTORY'/'SETTINGS'), use exact match when navigating. Web preview shows a green camera placeholder (no real camera) — auto-scan still calls /api/scan-card on the placeholder frame which returns identified=false; the empty-state 'Awaiting Card…' remains visible. Real card recognition can only be tested via direct backend call with a base64 image (see test_scan_pikachu).",
+  "rca_of_issue": "Iter 1 root causes both fixed: (1) STT accepted str path — now passes an open file handle via context manager. (2) Vision returned wrong Pokemon on JP cards — new prompt requires official English name translation (ウリムー->Swinub, ピカチュウ->Pikachu) with artwork sanity-check and confidence gating. JustTCG lookup then queries 'pokemon' or 'pokemon-japan' by language with cross-game fallback and set/number ranking."
+}

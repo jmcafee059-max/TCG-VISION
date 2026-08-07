@@ -1,0 +1,40 @@
+{
+  "summary": "Backend: 7/8 tests pass. Frontend: All 3 tabs load with correct testIDs and UI. One real backend bug found in /api/voice/transcribe.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/voice/transcribe",
+        "issue": "STT call fails with 'Expected entry at file to be bytes, an io.IOBase instance, PathLike or a tuple but received <class str> instead'. server.py line 284 passes file=tmp_path (a str). emergentintegrations.OpenAISpeechToText.transcribe (litellm underneath) requires bytes/file-object/tuple, not a plain string path. Endpoint returns 502 (stt_error) for every audio upload.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Voice loop (record -> transcribe -> chat -> speak)", "issue": "transcribeAudio() will always throw because backend /voice/transcribe is broken. Voice press-hold flow silently returns to idle without user feedback.", "affected_testIDs": ["mic-hold-btn","assistant-state-label"]}
+    ],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "index.tsx micBtn", "issue": "React Native Web console warnings: shadow* props deprecated (use boxShadow); props.pointerEvents deprecated (use style.pointerEvents). Non-blocking."}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py","/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Fix /api/voice/transcribe: pass an open file handle instead of a string path, e.g. `with open(tmp_path,'rb') as fh: resp = await stt.transcribe(file=fh, model='whisper-1', response_format='json')` OR pass bytes directly. Verify with emergentintegrations playbook - the correct signature may accept a Path object or bytes tuple.",
+    "Optional: migrate shadow* -> boxShadow and pointerEvents prop -> style.pointerEvents in index.tsx to silence RN-Web deprecation warnings."
+  ],
+  "critical_code_review_comments": [
+    "server.py: /api/scan-card correctly excludes mongo _id by inserting with our own uuid _id; /api/history uses projection {_id:0}. Good.",
+    "server.py: All routes /api-prefixed, env-driven, async DB usage - clean.",
+    "Frontend api.ts uses EXPO_PUBLIC_BACKEND_URL from env (correct). All interactive elements have testID."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "87.5% (7/8)", "frontend": "100% (UI render + navigation + testIDs verified)"},
+  "seed_data_creation": "test_scan_pikachu inserts a Pikachu Base 58 scan; test_history_and_clear cleans it up (DELETE /api/history). No residual data.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend URL: https://tcg-vision-ai.preview.emergentagent.com (from EXPO_PUBLIC_BACKEND_URL). Run pytest at /app/backend/tests/backend_test.py. The transcribe test was intentionally deselected in the final run because it fails due to the STT bug above; re-enable after fix. Frontend headless preview does not expose real camera (renders greenish placeholder) but scanner-screen renders (camPerm treated as granted in web).",
+  "rca_of_issue": "In server.py line 284: `stt.transcribe(file=tmp_path, ...)`. emergentintegrations wraps litellm/openai atranscription which validates the `file` arg via openai._files.assert_is_file_content — it must be bytes, io.IOBase, PathLike, or a (name, bytes) tuple. A raw str is rejected -> RuntimeError -> wrapped as APIConnectionError -> HTTPException 502 'stt_error: ...'. Fix by passing `open(tmp_path,'rb')` (io.IOBase) or `Path(tmp_path)` (PathLike) or `(fname, data)` tuple."
+}

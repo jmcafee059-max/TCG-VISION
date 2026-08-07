@@ -1,0 +1,39 @@
+{
+  "summary": "Iter 11.1 backend-only regression PASS. Verified the 0.55 hardcoded confidence gate is removed from /api/scan-card (grep confirms no 'if conf_val < 0.55' remains in server.py; comment at line 459 states 'Confidence gate lives on the CLIENT'). All 3 identified=True return paths (strict, loose, no-price) echo the raw `confidence` field from the vision model. Full regression: 18/18 tests PASS via public EXPO_PUBLIC_BACKEND_URL. Pikachu Base 58 still identifies with name='Pikachu', language='english', price_source contains 'JustTCG', market price populated, low<=market<=high; history GET/DELETE clean (no _id leak); voice transcribe + chat (with/without context) OK; collection CRUD + summary grouping OK; /api/card/graded-prices returns 10-grade shape; /api/card/grade-estimate returns structured grades. New passthrough behavior verified: the blurry-image test now allows identified=true with any confidence value (previously required conf>=0.55 — that assertion is dead code with the gate removed). Test file updated accordingly; the change is a test-spec alignment, not a functional fix.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/scan-card", "issue": "Heavily-degraded input images trigger long vision-model turnarounds (60–100s+) that occasionally exceed the Cloudflare edge timeout (~100s), yielding transient 502 Bad Gateway. Observed once on test_scan_blurry_low_quality; the retry succeeded. Not related to the iter 11.1 change. Consider adding a client-side pre-check (min image entropy / resolution) or a Gemini fast-fail branch so genuinely un-processable frames return quickly."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_collection.py",
+    "/app/backend/tests/test_graded_and_grade.py",
+    "/app/test_reports/pytest/iter11_1_regression.xml"
+  ],
+  "action_items": [
+    "None required for iter 11.1. Change is minimal, tested, working. Client-side threshold is now authoritative as intended.",
+    "OPTIONAL: Guard against unprocessable images: if Gemini returns 'Unable to process input image' (BadRequestError 400), server should return a fast identified=false with reasoning='image unprocessable' instead of bubbling a 502 (currently /api/card/grade-estimate raises 502 on such payloads — visible in backend logs)."
+  ],
+  "critical_code_review_comments": [
+    "server.py:459-460 comment cleanly documents the intent ('Confidence gate lives on the CLIENT'). No dead code left behind; the removed block is truly gone.",
+    "The response still passes ident.get('confidence') through on all three identified=True paths (strict, loose, no-price) and on both identified=false paths uses reasoning='No Pokemon card detected in frame' or 'Card visible but Pokemon name could not be read'. Client can now trust that identified=false is ONLY due to vision-model detection failure, never a threshold clamp.",
+    "No new deprecated Expo packages surfaced (no expo-av/expo-barcode-scanner/expo-background-fetch)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (test_scan_blurry_low_quality rewritten to reflect passthrough spec — no gate assertion)"
+  ],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "skipped per review request"},
+  "seed_data_creation": "None. Tests are self-cleaning.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 11.1 removed the hardcoded 0.55 confidence gate in /api/scan-card. Backend now passes through the vision model's raw confidence, and the frontend Settings threshold (default 40%) is the only gate. All 18 backend regression tests pass. test_scan_blurry_low_quality was updated to allow identified=true at any confidence (per new spec). One flaky observation: extremely blurred inputs occasionally 502 (Cloudflare edge timeout, not app bug) — retry works. No frontend testing performed (review request was backend-only).",
+  "rca_of_issue": "N/A — verification-only. Confirmed the removed gate at server.py:459 and validated end-to-end pipeline still works via public URL."
+}

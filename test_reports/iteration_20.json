@@ -1,0 +1,45 @@
+{
+  "summary": "Iter 20 (vision model switch to Claude Sonnet 4.5 + removal of 'YOU' camera pip) VERIFIED. Backend: 20/20 tests pass across all suites (health, root, scan-pikachu, scan-non-card, scan-blurry, history, transcribe, voice-chat x2, collection CRUD x5, iter16 non-strict x2, iter20 vision-switch x3, graded/grade-estimate x4). Frontend: Settings tab visually confirms 'Vision model: Claude Sonnet 4.5'; index.tsx code review confirms (a) NO `scannedThumb` state, (b) NO `setScannedThumb` calls anywhere in the file, (c) card panel image is a simple <Image source={{uri: card.image_url}} style={styles.cardThumb}> at line 543-548 — NOT wrapped in a thumbStack view, (d) styles.thumbStack/scannedPip/scannedPipImg/scannedPipLabel remain defined at lines 993-1018 but unused (dead-code style, acceptable). ACCURACY on Pikachu Base 58: name='Pikachu', number='058/102', set_name='Base Set', confidence>=0.85 (measured ~0.95), price populated from JustTCG, response time <20s (measured ~5s per call). REPEATABILITY: 3 sequential scans of the same image returned identical name/set_name/number. NON-CARD: 1x1 png correctly returns identified=false.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET pokemontcg.io (external image lookup inside /api/scan-card)", "issue": "Flaky ~1/10 calls returns no data → image_url comes back null on first scan of a fresh session. Retry succeeds. Not caused by the Claude switch. Backend already handles the null gracefully (image_url is Optional)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter20_vision_switch.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_collection.py",
+    "/app/backend/tests/test_iter16_non_strict.py",
+    "/app/backend/tests/test_graded_and_grade.py",
+    "/app/test_reports/pytest/iter20_vision.xml",
+    "/app/test_reports/pytest/iter20_regression.xml"
+  ],
+  "action_items": [
+    "(NONE required) All 6 review items green. Optional cleanup: remove unused styles thumbStack/scannedPip/scannedPipImg/scannedPipLabel from index.tsx (lines 993-1018) since no JSX references them anymore. Purely cosmetic — no runtime impact."
+  ],
+  "critical_code_review_comments": [
+    "server.py:157-158 — VISION_PROVIDER='anthropic', VISION_MODEL='claude-sonnet-4-5'. ✓ Passed to LlmChat.with_model() at line 204 and reused for grade-estimate at line 902.",
+    "index.tsx — grepped for 'scannedThumb', 'setScannedThumb', 'thumbStack' JSX usage: ZERO matches in component body. Card image at 543-548 is `<Image source={{uri: card.image_url}} style={styles.cardThumb} contentFit='cover' />` directly inside cardHeaderRow, not wrapped. ✓ Matches spec exactly.",
+    "index.tsx:993-1018 — unused styles thumbStack/scannedPip/scannedPipImg/scannedPipLabel still declared. Fine (spec explicitly permits this). Consider removing in future PR to keep file clean.",
+    "settings.tsx:208 — InfoRow shows label='Vision model' value='Claude Sonnet 4.5'. ✓ Confirmed visually in preview screenshot.",
+    "test_iter20_vision_switch.py — new test file created for iter20 covering accuracy/confidence≥0.85, 3x repeatability with identical name+set+number, and 1x1 png graceful reject. All 3 PASS."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter20_vision_switch.py (new)"
+  ],
+  "success_rate": {
+    "backend": "20/20 (100%) — all suites green after single retry on flaky pokemontcg.io image lookup. Claude Sonnet 4.5 measured: confidence ~0.95, latency ~5s/scan, 3/3 repeatable identical results on Pikachu Base 058/102.",
+    "frontend": "Smoke pass — Settings screen renders at 390x844, 'Vision model: Claude Sonnet 4.5' visible, GPT-5.2 chat model + JustTCG price source still shown. No pageerror. Only expected RN-web deprecation warnings from RN internals (shadow*, pointerEvents), not app code. Scanner screen not exercised on web because CameraView returns no frames in preview — camera-only flow already verified by main agent code review + backend confirms upstream contract."
+  },
+  "seed_data_creation": "None. Tests self-clean.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter 20 confirmed Claude Sonnet 4.5 gives strong OCR (058/102 read correctly, confidence ~0.95) with 3/3 repeatability on the Pikachu Base 58 stock image. The pip removal is code-verified only (web preview can't render the card panel without a real camera stream). If a future iter re-adds camera pip functionality on real devices, ensure it doesn't accidentally re-wrap the card image in a thumbStack — the current simple <Image> render is the source of truth. Backend contract unchanged. pokemontcg.io image lookup is externally flaky (~10%); backend already tolerates a null image_url."
+}

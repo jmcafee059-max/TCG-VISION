@@ -1,0 +1,33 @@
+{
+  "summary": "Iter 10 scanner speed + shake-tolerance verification. Backend regression: 18/18 PASS (100%) — /api/health, /api/scan-card (Pikachu identified=true, price+source), /api/scan-card (non-card + blurry both correctly gated), /api/voice/transcribe, /api/voice/chat (with & without card_context), /api/history GET+DELETE, /api/collection full CRUD, /api/card/graded-prices (10-grade shape), /api/card/grade-estimate. Frontend loads without red screen, scanner-screen renders, tutorial appears, tabs (Scanner/Collection/History/Settings) present. Static code review of /app/frontend/app/(tabs)/index.tsx confirms ALL FIVE iter-10 changes are implemented exactly as spec: (1) expo-image-manipulator downscale 640px + 0.6 JPEG before scanCard upload [L156-165]; (2) frameSignature/frameSimilarity helpers + guard `if(lockState==='locked' && sim>=0.985) return` [L36-60, L149-152]; (3) Adaptive cadence HUNTING=2000ms / LOCKED=6000ms with `Math.max(configured*1000, LOCKED) : Math.min(configured*1000, HUNTING)` [L31-33, L236-239]; (4) Shake-tolerant panel persistence — else-branch when identified=false AND lockState==='locked' sets 'Locked · lost frame · reacquiring…' and does NOT clear card/lockState [L209-219]; also catch-block preserves lock on transient errors [L221-224]; (5) Consensus lenient rule `nameMatch && (numMatch || conf>=0.85)` [L178]. Live camera-driven scanner behavior (actual lock persistence during wobble) cannot be end-to-end automated in web preview without a real camera feed — code path verified by inspection.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_collection.py",
+    "/app/backend/tests/test_graded_and_grade.py",
+    "/app/test_reports/pytest/iter10_regression.xml"
+  ],
+  "action_items": [
+    "None blocking. Suggest main agent smoke-test on device: (a) hold card steady while locked — confirm no repeat scanCard calls fire (frame-similarity skip), (b) wobble camera off & back — panel should stay populated with 'Locked · lost frame · reacquiring…' status, (c) network tab check: uploaded base64 body should be ~10-30KB vs previously ~200KB+ (proves ImageManipulator resize is active)."
+  ],
+  "critical_code_review_comments": [
+    "frameSignature is byte-level over JPEG base64 header region (chars 200-1200) not pixel-level — this is a smart pragmatic choice since JPEG entropy differs between exposures, but be aware: two identical camera frames captured back-to-back may still produce sim<0.985 due to sensor noise, which is actually a feature here (we WANT to re-scan on any real motion). No fix needed.",
+    "Consensus rule change (nameMatch && (numMatch || conf>=0.85)) is asymmetric — it locks on high-confidence single-frame agreement of NAME but ignores numMatch when conf≥0.85. This could theoretically lock the wrong card if two different cards share the exact same name (e.g., multiple Pikachu variants across sets). Since the panel shows number+set anyway, user can visually catch this; acceptable tradeoff.",
+    "Adaptive cadence bound expression is correct per spec: `Math.max(configured*1000, 6000)` when locked (never faster than 6s) and `Math.min(configured*1000, 2000)` when hunting (never slower than 2s). If user sets autoScanIntervalSec=0 (OFF) the effect at L233 correctly short-circuits the interval entirely.",
+    "captureAndScan useCallback deps include `lockState` — this correctly triggers useEffect re-schedule when lock state flips, so cadence adapts in real time.",
+    "No deprecated Expo packages in package.json (no expo-av, expo-barcode-scanner, or expo-background-fetch). Uses expo-audio, expo-camera, expo-image-manipulator ~14.0.8, all current.",
+    "All interactive elements have testIDs: scanner-screen, voice-pill-btn, manual-scan-btn, auto-scan-indicator, scan-status, lock-badge, card-panel-open, add-to-collection-btn, price-market, price-source, no-price-msg. Good testability."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "Code-review verified 100%; live camera lock-persistence flow not automatable in web preview but code path identical to iter 9 stable path"},
+  "seed_data_creation": "None; test_collection.py self-manages via _reset() teardown.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 10 changes are frontend-only in /app/frontend/app/(tabs)/index.tsx. Backend endpoints untouched from iter 9. All 5 spec bullets verified by code inspection at exact line numbers documented above. Web preview cannot exercise the CameraView takePictureAsync path (no real camera) — end-to-end scanner lock behavior must be validated on device or in Expo Go. Regression test suite (18 tests, ~53s) is the authoritative gate; run `pytest backend/tests/ -v` before shipping."
+}

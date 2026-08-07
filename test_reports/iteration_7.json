@@ -1,0 +1,40 @@
+{
+  "summary": "Iter 7 — ALL 4 ASKS VERIFIED. (1) PROMPT: Backend /api/scan-card with new IDENTIFY_SYSTEM correctly returns identified=false with reasoning in {'Scanning... please steady the camera', 'No Pokemon card detected in frame'} for a 1x1 unusable image; Pikachu Base 58 still returns identified=true, name='Pikachu', language='english', price.market populated, price_source contains 'JustTCG', image_url populated. (2) MULTI-FRAME CONSENSUS: Code review of /app/frontend/app/(tabs)/index.tsx:92-155 confirmed — captureAndScan stores {name, number} in lastResultRef, first identified scan sets lockState='candidate' + status 'Confirming <name> <number>…' and reschedules a scan in 350ms; only when the next scan's (name,number) equals the previous does it setCard(result), lockState='locked', status 'Locked · price loaded' / 'Locked · no exact price match'. Any low-confidence / unidentified / errored scan resets lastResultRef=null and lockState='scanning'. (3) LOCK FEEDBACK: /app/frontend/src/components/ReticleAnim.tsx:68-73 computes bracketColor = locked→colors.success, candidate→colors.warning, else→colors.brand — applied to all 4 corners, glow, and sweep. Runtime verified: reticle corners render rgb(61,123,255)=#3D7BFF (cobalt brand) in idle state. Lock badge (testID 'lock-badge') renders on top-pill area only when lockState==='locked' with green dot + 'LOCKED' text. (4) THEME: Root bg computed rgb(5,9,21)=#050915 ✓, brand corners rgb(61,123,255)=#3D7BFF ✓, auto-scan icon border cobalt brand, sync button uses cobalt brand fill; app.json backgroundColor #050915 verified in file. REGRESSION 9/9 pytest: /api/health, /api/root, /api/scan-card (pikachu + non-card + blurry), /api/history GET+DELETE (no _id leak), /api/voice/transcribe (WAV silence 200), /api/voice/chat (context + no-context, both return reply + mp3 audio_base64). Frontend: Scanner mounts, all 3 tabs (SCANNER/HISTORY/SETTINGS) present, HOLD TO ASK voice pill visible, manual-scan-btn + auto-scan-indicator interactive, initial scan-status='Point camera at a Pokémon card'. Two pre-existing RN-Web console warnings still present (shadow* & pointerEvents) — not regressions from iter 7.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "index.tsx pointerEvents", "issue": "RN-Web console still warns 'props.pointerEvents is deprecated. Use style.pointerEvents'. Pre-existing from iter 5/6. Reference: /app/frontend/app/(tabs)/index.tsx:300 (topPillWrap), :366 (bottomWrap)"},
+      {"component": "ReticleAnim shadow* style props", "issue": "RN-Web console warns '\"shadow*\" style props are deprecated. Use \"boxShadow\"'. Non-blocking on native. Reference: /app/frontend/src/components/ReticleAnim.tsx:123-126 (glow) and 152-155 (pulse)"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Nit, carry-over) Migrate pointerEvents={...} → style={{pointerEvents:'box-none'}} in index.tsx:300 and :366 to silence RN-Web deprecation warning.",
+    "(Nit, carry-over) Migrate shadow* → boxShadow in ReticleAnim.tsx glow (:123-126) and pulse (:152-155)."
+  ],
+  "critical_code_review_comments": [
+    "server.py:82-113 IDENTIFY_SYSTEM prompt correctly instructs the model to output not_ready_reason='Scanning... please steady the camera' when the collector number is unreadable, and rule 6 states 'detected=false' when uncertain. server.py:366-370 propagates ident.get('not_ready_reason') into CardInfo.reasoning, falling back to 'No Pokemon card detected in frame'. Verified with 1x1 image — reasoning matches allow-list.",
+    "index.tsx:47-49 lockState state + lastResultRef correctly implement 2-scan consensus. First match → candidate + 350ms retry; second match → locked + optional 800ms rescan when the identity changes. Failure paths (low conf / not identified / error) all reset lastResultRef=null so a stale candidate can never latch to a new card.",
+    "ReticleAnim.tsx:68-73 bracketColor mapping is exactly: locked→success (#3EE0B4), candidate→warning (#F5B942), else→brand (#3D7BFF). Applied to corners (lines 79-82), glow (:85), and sweep (:88-90). Consistent visual feedback across all reticle elements.",
+    "theme/index.ts:2-26 cobalt palette matches spec: surface #050915, surfaceSecondary #0D1428, brand #3D7BFF, brandSecondary #2E5EE0, success #3EE0B4, warning #F5B942, error #FF5A6E. Border tokens (#1E2A48, #3A4A72) sit in the cobalt family. Verified at runtime.",
+    "app.json:23 android.adaptiveIcon.backgroundColor and :45 splash backgroundColor both updated to #050915 — consistent with surface color."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (tightened test_scan_non_card to assert reasoning is one of the two allowed strings from the new prompt)"
+  ],
+  "success_rate": {"backend": "100% (9/9 pytest in 33s)", "frontend": "100% (theme, reticle color, tabs, voice pill, testIDs all verified; consensus logic code-reviewed)"},
+  "seed_data_creation": "None — history cleared at end of test_history_and_clear.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend URL: https://tcg-vision-ai.preview.emergentagent.com. Iter 7 adds: (a) IDENTIFY_SYSTEM prompt with 100%-confidence collector-number rule + 'Scanning... please steady the camera' not_ready_reason, propagated via CardInfo.reasoning. (b) Scanner requires 2 consecutive matching (name,number) scans to lock — lockState state machine: idle→scanning→candidate→locked; testID 'lock-badge' renders only when lockState==='locked'. (c) ReticleAnim bracketColor tri-state: brand cobalt / warning amber / success mint. (d) Cobalt Blue theme in theme/index.ts (surface #050915, brand #3D7BFF). Two carry-over RN-Web warnings (shadow*, pointerEvents) still open but non-blocking. testIDs unchanged plus new: 'lock-badge'.",
+  "rca_of_issue": "N/A — all iter-7 asks verified, zero regressions."
+}

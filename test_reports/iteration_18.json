@@ -1,0 +1,40 @@
+{
+  "summary": "Iter 18 cosmetic revert VERIFIED with one critical leftover bug fixed by testing agent. Review request: remove scannedThumb entirely; card panel + detail sheet should use only card.image_url (official pokemontcg.io image). Code review of /app/frontend/app/(tabs)/index.tsx found: (a) NO `useState` declaration for scannedThumb — main agent removed it correctly. (b) Card panel thumb (line 544-545) correctly uses `card.image_url` only. (c) Detail sheet payload (line 535) correctly uses `image_url: card.image_url`. (d) BUT line 181 still had a dangling `setScannedThumb(\\`data:image/jpeg;base64,${uploadB64}\\`)` call to the non-existent setter — this would ReferenceError-crash the app on every successful scan. I removed that one line (kept `lastCaptureBase64Ref.current = uploadB64` which is still consumed by captureFrameForGrade). Post-fix frontend web preview loads clean: no red screen, no pageerror, scanner-screen mounts, onboarding Step 1/4 renders. Backend regression: 15 PASSED / 1 SKIPPED / 0 FAILED on iter18_regression.xml — test_scan_pikachu confirms strict branch still returns identified=true, name=Pikachu, number populated (058/102 form), image_url populated (pokemontcg.io URL), price populated. test_non_strict_never_returns_empty_cardinfo PASSED confirming non-strict branch still vision-authoritative with no price and correct reasoning. The single SKIP is test_non_strict_trusts_vision_no_price (pre-existing skip in the file, unrelated to this iteration). Collection CRUD (5/5), transcribe/voice-chat (3/3), history (1/1), health/root (2/2) all green.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ScannerScreen (index.tsx)", "issue": "Dangling `setScannedThumb(...)` call at line 181 after scannedThumb state was removed — would throw ReferenceError: setScannedThumb is not defined on every successful scan and crash the scanner. FIXED by testing agent (removed line). Root cause: incomplete revert by main agent.", "testID": "scanner-screen", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_iter16_non_strict.py",
+    "/app/backend/tests/test_collection.py",
+    "/app/test_reports/pytest/iter18_regression.xml"
+  ],
+  "action_items": [
+    "(RESOLVED by testing agent) Removed dangling setScannedThumb call at index.tsx:181 that would crash the scanner on every successful identification. Please review the one-line delete.",
+    "(NONE for backend) Backend contract unchanged from iter 17 — strict branch returns full JustTCG name/set/number/image/price; non-strict is vision-authoritative with no price. 15/16 tests pass, 1 pre-existing skip."
+  ],
+  "critical_code_review_comments": [
+    "index.tsx: NO `scannedThumb` state variable declared anywhere (grep confirmed) — matches the review request intent.",
+    "index.tsx:544-545 — card panel thumbnail uses `<Image source={{ uri: card.image_url }}>` with a fallback empty tile when card.image_url is missing. Correct.",
+    "index.tsx:535 — detail sheet passes `image_url: card.image_url` only. Correct.",
+    "index.tsx:181 (BEFORE FIX) — called setScannedThumb which no longer exists; would crash the app. Now removed. lastCaptureBase64Ref.current is still populated for captureFrameForGrade (used by grading flow). Correct.",
+    "server.py unchanged from iter 17 — strict branch still JustTCG-authoritative with full price; non-strict still vision-authoritative with empty price. Verified via test_scan_pikachu (strict) and test_non_strict_never_returns_empty_cardinfo (non-strict)."
+  ],
+  "updated_files": [
+    "/app/frontend/app/(tabs)/index.tsx (removed dangling setScannedThumb call at line 181; net -1 line)"
+  ],
+  "success_rate": {
+    "backend": "15/16 (93.75%) — 15 passed, 1 pre-existing skip, 0 failed",
+    "frontend": "Smoke pass — home loads, no red screen, no console pageerror, scanner-screen renders, onboarding Step 1/4 visible. scannedThumb wiring fully removed as requested."
+  },
+  "seed_data_creation": "None. test_history_and_clear wipes /api/history; test_collection.* wipes /api/collection.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter 18 is a cosmetic revert of iter 17's scannedThumb feature — user wanted the OFFICIAL pokemontcg.io card image (already in card.image_url from backend), not the user's own camera capture. Main agent removed the useState and the JSX references correctly, but left a dangling setScannedThumb(...) call at line 181 which the testing agent removed. If future iterations bring back a scannedThumb-like feature, remember: line 181 is inside the successful-identification block AFTER `if (result.identified && conf >= threshold)`; any state setter added there must have a matching useState declaration. Backend contract unchanged from iter 17."
+}

@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration 4 — all backend and frontend improvements verified. BACKEND (10/10 tests PASS): /api/scan-card on English Pikachu now returns image_url populated from pokemontcg.io (added assertion — https URL). All regressions green: /api/health, /api/scan-card (identified+priced+coherent low<=mid<=high), /api/voice/transcribe (silent WAV), /api/voice/chat (audio_base64 >500 chars, mime audio/mpeg), /api/history GET+DELETE (no _id leak), non-card and blurry-image confidence gate. JP name-only image fallback is code-verified: fetch_english_image builds ['name:X number:N', 'name:X'] and JP path in /api/scan-card passes number=None so the name-only query is exercised. FRONTEND (100%): SCAN_INTERVAL_MS=3000 confirmed on index.tsx:27; setTimeout(captureAndScan, 800) re-scan on card-change confirmed at index.tsx:107. Fresh-boot tutorial: after localStorage.clear + reload, [data-testid=tutorial-modal] renders with 'STEP 1 / 4 POINT & SCAN'; tutorial-next-btn advances to 'STEP 2 / 4 LIVE PRICES'; tutorial-skip-btn closes modal AND persists localStorage.tutorial_seen=true; second boot does NOT show modal. Scanner testIDs after tutorial close: scanner-screen, scan-status, mic-hold-btn, assistant-state-label — all present; 'HOLD MIC TO ASK' pill text visible. Settings tab renders a 'Show tutorial' row (icon help-circle-outline) and clicking it re-opens the tutorial modal. Non-blocking RN-Web warnings for shadow* and props.pointerEvents persist from prior iterations (already tracked).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "index.tsx micBtn / topPillWrap / reticleWrap", "issue": "RN-Web console warnings persist (non-blocking on native): 'shadow*' style props deprecated (use boxShadow) at index.tsx:699-702 and props.pointerEvents deprecated (use style.pointerEvents) at index.tsx:267,290,330."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "index.tsx:27 SCAN_INTERVAL_MS=3000 correctly halves prior 6s cadence — improves new-card auto-detect latency.",
+    "index.tsx:99-108 detects card change via name || number diff and schedules a follow-up scan at 800ms — locks in card swap quickly without spamming the API.",
+    "server.py:284-310 fetch_english_image now tries name+number first (English), then name-only fallback — perfect for JP cards where /api/scan-card passes number=None (server.py:375), guaranteeing an image_url for Japanese identifications too.",
+    "Tutorial.tsx uses proper Modal + onShow reset to always start at step 0; testIDs 'tutorial-modal', 'tutorial-next-btn', 'tutorial-done-btn' (last step), 'tutorial-skip-btn' are wired correctly.",
+    "index.tsx:73-74 first-boot gate uses storage.getItem<boolean>('tutorial_seen', false) — non-invasive; closeTutorial persists via storage.setItem('tutorial_seen', true).",
+    "settings.tsx:44-48 openTutorial + closeTutorial correctly re-open and persist tutorial_seen; row uses Pressable via Row helper so it is tappable."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "100% (tutorial first-boot, next, skip persistence, second-boot no-show, Settings re-open all verified)"},
+  "seed_data_creation": "test_scan_pikachu inserted a Pikachu scan; test_history_and_clear ran DELETE /api/history at end, so DB left empty.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend URL: https://tcg-vision-ai.preview.emergentagent.com. Run: `cd /app/backend && pytest tests/backend_test.py -v --tb=short --junitxml=/app/test_reports/pytest/pytest_results.xml` (10 tests, ~22s). Tutorial testIDs: tutorial-modal, tutorial-next-btn (steps 1-3), tutorial-done-btn (step 4), tutorial-skip-btn. First-boot gate keyed on localStorage 'tutorial_seen'. Settings has a 'Show tutorial' row to re-open. SCAN_INTERVAL_MS=3000 with an 800ms follow-up scan on card-change (index.tsx:107)."
+}

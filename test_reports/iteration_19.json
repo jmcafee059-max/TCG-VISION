@@ -1,0 +1,38 @@
+{
+  "summary": "Iter 19 (labeled 'Iter 18' in the request) VERIFIED: user-capture 'YOU' pip and RESCAN button are correctly wired in /app/frontend/app/(tabs)/index.tsx. Code review confirms all four review items match. Frontend smoke test passes (no red screen, no console pageerror, scanner-screen renders, onboarding Step 1/4 renders). Backend regression 15/16 PASS + 1 pre-existing SKIP, no failures.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_iter16_non_strict.py",
+    "/app/backend/tests/test_collection.py",
+    "/app/test_reports/pytest/iter19_regression.xml"
+  ],
+  "action_items": [
+    "(NONE) All four review items verified — feature is wired correctly and both smoke + regression pass. Main agent can self-verify on real device: (a) point camera at Pikachu Base 58, (b) confirm small 'YOU' pip appears at top-right of official card thumb, (c) tap RESCAN and confirm card clears + re-identifies without opening detail sheet."
+  ],
+  "critical_code_review_comments": [
+    "index.tsx:90 — `const [scannedThumb, setScannedThumb] = useState<string | null>(null);` declared. ✓",
+    "index.tsx:182 — `setScannedThumb(`data:image/jpeg;base64,${uploadB64}`)` called inside the successful-identification branch, gated by `result.identified && conf >= threshold`. ✓",
+    "index.tsx:545-567 — `<View style={styles.thumbStack}>` wraps the official cardThumb AND the scannedPip overlay. Pip renders only when `scannedThumb` truthy, contains `<Image style={styles.scannedPipImg}>` + `<Text style={styles.scannedPipLabel}>YOU</Text>`. Styles at 1008-1033 define scannedPip (40x56, top:-6/right:-6, brand border), scannedPipImg (100% fill), scannedPipLabel (7pt bold, dark bg strip). ✓",
+    "index.tsx:638-673 — `cardActions` row with `flexDirection:'row'`, gap:spacing.sm holds two Pressables: rescan-btn (LEFT, refresh icon + 'RESCAN', surfaceSecondary bg + borderStrong) and add-to-collection-btn (RIGHT, using styles.addBtn + styles.addBtnFlex). ✓",
+    "index.tsx:641-649 — rescan-btn onPress calls `e.stopPropagation?.()`, sets `lastResultRef.current = null; setCard(null); setScannedThumb(null); setLockState('scanning'); setStatusMsg('Rescanning…'); captureAndScan();`. Matches spec exactly. ✓",
+    "index.tsx:657-660 — add-to-collection-btn also calls `e.stopPropagation?.()` so outer Pressable's open-detail doesn't fire. ✓",
+    "index.tsx:972 — `addBtnFlex: { flex: 1, marginTop: 0 }` correctly zeroes out the standalone `addBtn.marginTop: spacing.md` so both buttons align vertically inside cardActions. ✓",
+    "server.py unchanged — /api/scan-card strict branch still returns JustTCG-authoritative name/set/number/image/price for Pikachu Base 58 (test_scan_pikachu green), non-strict branch still vision-authoritative with no price (test_non_strict_never_returns_empty_cardinfo green)."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "15/16 (93.75%) — 15 passed, 1 pre-existing skip (test_non_strict_trusts_vision_no_price), 0 failed. Includes 9/9 in backend_test.py (health, root, scan-pikachu strict, scan-non-card, scan-blurry, history, transcribe, voice-chat with+empty ctx), 5/5 collection CRUD, 1/2 iter16 non-strict (1 skip).",
+    "frontend": "Smoke pass — https://tcg-vision-ai.preview.emergentagent.com loads clean at 390x844, scanner-screen mounts, onboarding Step 1/4 visible, no pageerror, no red screen. Only expected RN-web console warnings (`shadow*` and `props.pointerEvents` deprecations from RN internals, not app code). card-panel-open + rescan-btn + add-to-collection-btn are NOT rendered in web preview because no real camera → no card ever identified; verified render path is unreachable-by-design in preview but code is syntactically and structurally correct."
+  },
+  "seed_data_creation": "None. Collection & history tests self-clean via DELETE.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter 19 re-added the scannedThumb feature that was removed in iter 18 revert (per user request — user still couldn't tell whether AI matched the correct card, so main agent brought back the pip AND added a RESCAN button for quick retries when AI is wrong). Both are wired correctly. NOTE: web preview cannot actually trigger card-panel-open branch because CameraView on web returns no frames — the RESCAN / YOU-pip / add-to-collection UI can only be exercised on a real device or Expo Go with camera. Backend contract unchanged from iter 17/18. If future iterations touch this flow, confirm both stopPropagation() calls stay so tapping the buttons doesn't open the detail sheet."
+}

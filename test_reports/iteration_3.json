@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration 3 — all 9 backend tests PASS (100%) and frontend Settings verified (100%). PRIMARY FIXES verified: (1) Vision model switched to gemini/gemini-3.1-pro-preview — /api/scan-card with Base Set Pikachu (base1/58_hires.png) returns identified=true, name='Pikachu', number contains '58', language='english', price_source starts with 'JustTCG', market price populated, and low<=mid<=high ordering coherent. (2) Confidence gate: 1x1 white PNG returns identified=false with reasoning='No Pokemon card detected in frame'; a heavily downsampled+blurred Pikachu (24x34→upsampled+GaussianBlur r=8) also returns identified=false with reasoning — no wrong guess. (3) Enhanced JSON schema (name_native/name_english/set_code/art_description) is parsed correctly and Pikachu populates full CardInfo fields. REGRESSIONS all green: /api/health {ok:true,llm_key:true}; /api/voice/transcribe (1s silent WAV) returns 200 {text:''}; /api/voice/chat with card_context returns reply + audio_base64 (>500 chars) + mime='audio/mpeg'; /api/history returns list without _id and DELETE clears it. FRONTEND: Settings tab now shows three rows under VOICE ASSISTANT section — Voice: Nova (OpenAI TTS), Chat model: GPT-5.2, Vision model: Gemini 3 Pro. All text nodes present in DOM and rendered on mobile viewport 390x844. Non-blocking RN-Web deprecation warnings for shadow* and props.pointerEvents persist from iter 1 (already flagged, non-blocking on native).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "index.tsx micBtn / topPillWrap", "issue": "RN-Web console warnings persist (non-blocking): 'shadow*' style props deprecated (use boxShadow) and props.pointerEvents deprecated (use style.pointerEvents). Reference: /app/frontend/app/(tabs)/index.tsx:249,272,312,680-683"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py line 79-80 correctly sets VISION_PROVIDER='gemini' and VISION_MODEL='gemini-3.1-pro-preview' — key fix from iter 2.",
+    "server.py IDENTIFY_SYSTEM (lines 82-110) enforces read-native-name-first with a katakana lookup table including ハスブレロ=Lombre, and mandates art_description cross-check + confidence downgrade on mismatch — directly addresses the reported Lombre→Hisuian Lilligant bug.",
+    "server.py /api/scan-card confidence gate (lines 329-343): parses ident.confidence safely with TypeError/ValueError catch, gates at 0.55, and returns a user-friendly percentage-based reasoning without leaking wrong card names. Verified with blurry-image test.",
+    "server.py identify_card_with_vision correctly strips code fences (```json), extracts first {...} block, and falls back to {'detected': False} on any parse error — robust for non-strict JSON output from vision.",
+    "server.py /api/scan-card inserts scan with own uuid id and /api/history projects out _id — no ObjectId leak (verified in test_history_and_clear).",
+    "server.py preserves language field wiring end-to-end (identify → CardInfo.language → frontend chip)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (Settings VOICE ASSISTANT shows Voice/Chat model/Vision model with correct values)"},
+  "seed_data_creation": "test_scan_pikachu inserted one Pikachu scan; test_scan_blurry_low_quality did not insert (identified=false); test_history_and_clear ran DELETE /api/history at end so DB left empty.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend URL: https://tcg-vision-ai.preview.emergentagent.com. Run: `cd /app/backend && pytest tests/backend_test.py -v --tb=short --junitxml=/app/test_reports/pytest/pytest_results.xml`. Test file now has 9 tests (added test_scan_blurry_low_quality using PIL — Pillow 12.3.0 already installed). Vision model is gemini/gemini-3.1-pro-preview via emergentintegrations; may take ~5-10s per identify call. Confidence gate threshold is 0.55 in server.py. Frontend Settings tab (labels UPPERCASE) shows 'Vision model: Gemini 3 Pro' as new row alongside Chat model GPT-5.2 and Voice Nova.",
+  "rca_of_issue": "Iter 3 fix: The Japanese Lombre (ハスブレロ) misidentification was caused by (a) GPT-5.2 vision being weaker on CJK-printed card text, and (b) the model over-relying on artwork resemblance. Fix combines: (1) switching to Gemini 3 Pro which handles CJK far better; (2) prompt now demands the native-name-first read with explicit katakana→English lookup table and an art_description cross-check step; (3) a 0.55 confidence gate at the API layer prevents any low-confidence guess from ever surfacing a wrong card name/price to the user. Verified: blurry image now returns identified=false with reasoning instead of a wrong card."
+}

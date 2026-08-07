@@ -1,0 +1,55 @@
+{
+  "summary": "Iter 22 (Candidate Picker + Announce-on-Lock + Session Batch Mode) VERIFIED green on both backend and frontend. Backend: 25/26 tests pass; the 1 failure is the known pokemontcg.io upstream flake in test_iter21_image_reliability::test_pikachu_image_reliability_5x (4/5 image_url present, 1 call returned null — identify/price/name all correct on the failing call). NEW iter22 endpoint tests (4/4 PASS): POST /api/scan-card/pick with {Pikachu, Base, 58, english} returns 200, identified=true, name=Pikachu, set_name/number populated, image_url non-null (https://images.pokemontcg.io/base1/58...), price.market=$7.12, price_source='JustTCG · pokemon · Holofoil · picked'. Unknown candidate returns 404. /api/scan-card response now includes `ambiguous: bool` and `candidates: list` fields on both success and non-detect paths (Pydantic CardInfo model accepts both). Frontend: App loads at http://localhost:3000, no red screen. Tutorial shows on first boot, SKIP dismisses cleanly. All four tabs (Scanner/Collection/History/Settings) render without crash. Settings screen exposes testID `announce-lock-switch` and `batch-mode-switch`; both toggle. When batch mode ON, Scanner shows testID `batch-strip` with content 'SESSION $0.00 0 cards' + `batch-reset-btn`; when OFF, batch-strip is hidden (verified across nav Scanner→Settings→Collection→Scanner). Settings persist across screen navigation. `ambiguous-block` correctly hidden on normal (non-ambiguous) scans; render path doesn't crash. No infinite render loops observed (lastAnnouncedKeyRef/lockStateRef/settingsRef refs correctly guarded with useEffect deps). Vision model unchanged: claude-sonnet-4-5 at server.py:170 (used by /api/scan-card and /api/card/grade-estimate).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/scan-card (upstream pokemontcg.io)", "issue": "test_iter21_image_reliability_5x: 1/5 calls returned image_url=null (call #5, elapsed 9.0s). identify/name/number/price all correct. This is upstream pokemontcg.io flakiness that the iter21 retry-once + multi-query fallback partly mitigates but cannot fully eliminate. Same as iter21 report's noted risk. Not a regression."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "web-only style warnings", "issue": "Console emits: 'shadow* style props are deprecated. Use boxShadow' and 'props.pointerEvents is deprecated. Use style.pointerEvents'. Web-only informational warnings from react-native-web shim; no functional impact on native. Not blocking. Reference: BlurView/View uses in index.tsx and CardDetailSheet."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter22_candidate_and_batch.py (NEW — 4/4 PASS)",
+    "/app/backend/tests/backend_test.py (9/9)",
+    "/app/backend/tests/test_collection.py (5/5)",
+    "/app/backend/tests/test_graded_and_grade.py (4/4)",
+    "/app/backend/tests/test_iter16_non_strict.py (2/2)",
+    "/app/backend/tests/test_iter21_image_reliability.py (1/2 — upstream flake)",
+    "/app/test_reports/pytest/iter22_new.xml",
+    "/app/test_reports/pytest/iter22_regression.xml"
+  ],
+  "action_items": [
+    "(NONE required) All 3 iter22 features work end-to-end. Optional / non-blocking: consider caching successful (name,number)→image_url pairs in memory to reduce reliance on pokemontcg.io for image lookups (would also flatten the iter21 flake). Also optional: migrate off deprecated web `shadow*` and `pointerEvents` props to their `boxShadow` / `style.pointerEvents` equivalents to silence RN-web warnings."
+  ],
+  "critical_code_review_comments": [
+    "server.py:748-795 pick_candidate — Correct: builds candidates via _justtcg_query(name, game, number, set_name), then walks list looking for exact number+set match; falls back to candidates[0] if no exact match. Saves to db.scans for history consistency. Price source string suffixed with ' · picked' so frontend/testing can distinguish picked-vs-scanned entries. image_url only fetched for english (matches scan-card behavior).",
+    "server.py:94-101 CardCandidate model — Clean shape, uses Optional for all non-name fields, includes just_id for future JustTCG deep-linking.",
+    "server.py:121-122 CardInfo — ambiguous=False default, candidates=[] via Field(default_factory=list). Pydantic v2 compatible. Non-detect and non-strict paths omit them → defaults apply → response schema stays consistent.",
+    "server.py:544-583 scan-card strict-match branch — Only populates candidates_list when result['strict']==True AND alt_matches non-empty. ambiguous is len(candidates_list)>0. Correct logic: never mark ambiguous unless we have real alternatives with different set_names.",
+    "server.py:400-411 fetch_price_and_meta alt_matches — Collects candidates that share the read number but come from a DIFFERENT set than the best match. Cap at 4. Perfect UX for Pikachu-style multi-set duplicates.",
+    "index.tsx:99-103, 113-120 — Refs (lastAnnouncedKeyRef, settingsRef, lockStateRef) properly synced via useEffects. lockStateRef.current used inside captureAndScan callback to break the stale-closure trap. No exhaustive-deps warning risk.",
+    "index.tsx:225-240 announce-on-lock — Gated on 3 conditions (announceOnLock && voiceEnabled && key changed). Uses lastAnnouncedKeyRef to prevent re-announce for same card. Silent .catch(()=>{}) on voiceChat failure — good.",
+    "index.tsx:219-223 batch-mode accumulator — Only fires on `changed` (new card) so re-scanning same card doesn't inflate total. Guards on result.price.market != null.",
+    "index.tsx:673-707 Candidate Picker UI — testID='ambiguous-block' container + testID='alt-candidate-{i}' per chip. Each chip's onPress e.stopPropagation to avoid bubbling into the cardPanel-open pressable. pickCandidate call updates card state on success. Silent catch — could add toast in future.",
+    "settings.tsx:197-222 — announce-lock-switch and batch-mode-switch wired to update() → persisted to app_settings_v3 storage → broadcast to listeners so Scanner sees changes without navigation. Confirmed live."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter22_candidate_and_batch.py (NEW)",
+    "/app/test_reports/pytest/iter22_new.xml (NEW)",
+    "/app/test_reports/pytest/iter22_regression.xml (NEW)"
+  ],
+  "success_rate": {
+    "backend": "25/26 (96%) — 4/4 iter22 additions (pick canonical, pick unknown, ambiguous field present on strict-match scan, ambiguous+candidates=[] on non-detect). Full regression: 9/9 backend_test, 5/5 collection, 4/4 graded, 2/2 iter16 non-strict, 4/4 iter22 new, 1/2 iter21 image (upstream flake, not a regression).",
+    "frontend": "100% for scope tested — App loads, tutorial + SKIP work, all 4 tabs render, both new switches present + functional, batch-strip visibility toggles correctly (ON=visible/$0.00/0 cards/reset btn, OFF=hidden), persists across nav, ambiguous-block hidden on non-ambiguous state, no red screen, no infinite render loops."
+  },
+  "seed_data_creation": "None. Tests self-clean via /api/history clear and idempotent /api/collection add.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter22 added: (a) POST /api/scan-card/pick — takes {name,set_name,number,language}, does a fresh JustTCG lookup, returns full CardInfo with image_url + price + price_source ending in ' · picked'. (b) /api/scan-card CardInfo now includes ambiguous:bool and candidates:List[CardCandidate]; ambiguous=true only on strict-match scans where the same collector number exists in DIFFERENT sets. (c) Frontend Settings has 2 new switches (announce-lock-switch, batch-mode-switch) persisted in app_settings_v3. Scanner shows batch-strip (+batch-reset-btn) when batchMode is on, and calls voiceChat for a TTS 'name, set. market price X.' announcement once per unique locked card when announceOnLock+voiceEnabled. Frontend Candidate Picker: testID ambiguous-block + alt-candidate-{i}. Vision model MUST remain claude-sonnet-4-5 (server.py:170). If future iterations touch fetch_english_image, note the pokemontcg.io upstream still occasionally returns empty data (1/5 in this run) — retry loop mitigates 5xx but not empty-data 200s. Consider adding response-body-empty retry."
+}
