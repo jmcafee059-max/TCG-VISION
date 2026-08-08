@@ -24,8 +24,20 @@ load_dotenv(ROOT_DIR / ".env")
 # ---- Env ----
 MONGO_URL = os.environ["MONGO_URL"]
 DB_NAME = os.environ["DB_NAME"]
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+# Prefer explicit LLM_API_KEY, but also allow common env var names.
+LLM_API_KEY = (
+    os.environ.get("LLM_API_KEY")
+    or os.environ.get("OPENAI_API_KEY")
+    or os.environ.get("OPENAI_KEY")
+    or ""
+)
 JUSTTCG_API_KEY = os.environ.get("JUSTTCG_API_KEY", "")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger("tcg-vision")
 
 # ---- Mongo ----
 try:
@@ -44,9 +56,6 @@ from openai import AsyncOpenAI
 # ---- FastAPI ----
 app = FastAPI(title="TCG Vision Price Checker")
 api = APIRouter(prefix="/api")
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger("tcg-vision")
 
 # ---- Models ----
 class ScanRequest(BaseModel):
@@ -208,10 +217,10 @@ IDENTIFY_SYSTEM = (
 
 async def identify_card_with_vision(image_b64: str) -> dict:
     """Send image to OpenAI vision model and parse JSON."""
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(500, "EMERGENT_LLM_KEY not configured")
+    if not LLM_API_KEY:
+        raise HTTPException(500, "LLM_API_KEY not configured")
 
-    client = AsyncOpenAI(api_key=EMERGENT_LLM_KEY)
+    client = AsyncOpenAI(api_key=LLM_API_KEY)
     
     # Clean base64: remove data URL prefix if present
     clean_b64 = image_b64
@@ -609,26 +618,36 @@ async def root():
 
 @api.get("/health")
 async def health():
-    return {"ok": True, "llm_key": bool(EMERGENT_LLM_KEY)}
+    return {
+        "ok": True,
+        "llm_key": bool(LLM_API_KEY),
+        "justtcg_key": bool(JUSTTCG_API_KEY),
+    }
 
 
 @api.post("/scan-card", response_model=CardInfo)
 async def scan_card(req: ScanRequest):
     """Identify a Pokemon card from a base64 camera frame and fetch price data."""
-    if not req.image_base64:
-        raise HTTPException(400, "image_base64 required")
+    try:
+        if not req.image_base64:
+            raise HTTPException(400, "image_base64 required")
 
-    # Strip data URL prefix if present
-    b64 = req.image_base64
-    if b64.startswith("data:"):
-        b64 = b64.split(",", 1)[-1]
+        # Strip data URL prefix if present
+        b64 = req.image_base64
+        if b64.startswith("data:"):
+            b64 = b64.split(",", 1)[-1]
 
-    ident = await identify_card_with_vision(b64)
-    if not ident.get("detected"):
-        return CardInfo(
-            identified=False,
-            reasoning=ident.get("not_ready_reason") or "No Pokemon card detected in frame",
-        )
+        ident = await identify_card_with_vision(b64)
+        if not ident.get("detected"):
+            return CardInfo(
+                identified=False,
+                reasoning=ident.get("not_ready_reason") or "No Pokemon card detected in frame",
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("scan-card failed")
+        raise HTTPException(500, f"scan_error: {e}")
 
     # Confidence gate lives on the CLIENT (user-configurable in Settings).
     # Backend just returns the raw confidence so the client can decide how strict to be.
@@ -801,13 +820,13 @@ async def clear_history():
 @api.post("/voice/transcribe")
 async def transcribe(file: UploadFile = File(...)):
     """Accept an audio blob (m4a/wav/mp3) and return transcript text."""
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(500, "EMERGENT_LLM_KEY not configured")
+    if not LLM_API_KEY:
+        raise HTTPException(500, "LLM_API_KEY not configured")
     data = await file.read()
     if not data:
         raise HTTPException(400, "empty audio")
-    
-    client = AsyncOpenAI(api_key=EMERGENT_LLM_KEY)
+
+    client = AsyncOpenAI(api_key=LLM_API_KEY)
     
     try:
         resp = await client.audio.transcriptions.create(
@@ -835,19 +854,17 @@ VOICE_SYSTEM = (
 @api.post("/voice/chat")
 async def voice_chat(req: VoiceChatRequest):
     """Given user text + optional current card context, return AI reply text + TTS mp3 base64."""
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(500, "EMERGENT_LLM_KEY not configured")
+    if not LLM_API_KEY:
+        raise HTTPException(500, "LLM_API_KEY not configured")
     if not req.text.strip():
         raise HTTPException(400, "empty text")
 
-    ctx = ""
-    if req.card_context:
-        try:
-            ctx = "CURRENT CARD JSON:\n" + json.dumps(req.card_context, ensure_ascii=False)
-        except Exception:
-            ctx = ""
+    try:
+        ctx = await get_card_context(req.card_id)
+    except Exception:
+        ctx = ""
 
-    client = AsyncOpenAI(api_key=EMERGENT_LLM_KEY)
+    client = AsyncOpenAI(api_key=LLM_API_KEY)
 
     prompt = req.text if not ctx else f"{ctx}\n\nUser: {req.text}"
     try:
@@ -1186,9 +1203,9 @@ GRADED_SYSTEM = (
 
 @api.post("/card/graded-prices", response_model=GradedPricesResponse)
 async def graded_prices(req: GradedPricesRequest):
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(500, "EMERGENT_LLM_KEY not configured")
-    client = AsyncOpenAI(api_key=EMERGENT_LLM_KEY)
+    if not LLM_API_KEY:
+        raise HTTPException(500, "LLM_API_KEY not configured")
+    client = AsyncOpenAI(api_key=LLM_API_KEY)
 
     ctx = {
         "name": req.name,
@@ -1284,13 +1301,13 @@ GRADING_SYSTEM = (
 
 @api.post("/card/grade-estimate", response_model=GradeEstimateResponse)
 async def grade_estimate(req: GradeEstimateRequest):
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(500, "EMERGENT_LLM_KEY not configured")
+    if not LLM_API_KEY:
+        raise HTTPException(500, "LLM_API_KEY not configured")
     b64 = req.image_base64
     if b64.startswith("data:"):
         b64 = b64.split(",", 1)[-1]
 
-    client = AsyncOpenAI(api_key=EMERGENT_LLM_KEY)
+    client = AsyncOpenAI(api_key=LLM_API_KEY)
     
     # Clean base64
     clean_b64 = b64
@@ -1385,4 +1402,8 @@ async def log_requests(request, call_next):
 
 @app.on_event("shutdown")
 async def _shutdown():
-    mongo_client.close()
+    try:
+        if mongo_client:
+            mongo_client.close()
+    except Exception:
+        pass
