@@ -1402,6 +1402,11 @@ async def grade_estimate(req: GradeEstimateRequest):
 
 app.include_router(api)
 
+# Health check endpoint for Railway
+@app.get("/api/health")
+async def health_check():
+    return {"status": "healthy", "service": "tcg-vision-backend"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
