@@ -1,25 +1,44 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/src/theme";
-import { StyleSheet } from "react-native";
+import { StyleSheet, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabsLayout() {
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  
+  // Responsive sizing based on screen dimensions
+  const isSmallScreen = width < 360;
+  const isLargeScreen = width > 400;
+  
+  const tabBarHeight = isSmallScreen ? 70 : (isLargeScreen ? 95 : 88);
+  const iconSize = isSmallScreen ? 22 : (isLargeScreen ? 28 : 24);
+  const labelFontSize = isSmallScreen ? 9 : (isLargeScreen ? 11 : 10);
+  const paddingTop = isSmallScreen ? 8 : (isLargeScreen ? 14 : 12);
+  const paddingBottom = insets.bottom > 0 ? insets.bottom + 8 : (isSmallScreen ? 24 : 32);
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: {
+          ...styles.tabBar,
+          height: tabBarHeight + paddingBottom,
+          paddingTop,
+          paddingBottom,
+        },
         tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.onSurfaceTertiary,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: "600", letterSpacing: 0.4 },
+        tabBarLabelStyle: { fontSize: labelFontSize, fontWeight: "600", letterSpacing: 0.4 },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: "SCANNER",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="scan-outline" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="scan-outline" size={iconSize} color={color} />
           ),
         }}
       />
@@ -27,8 +46,8 @@ export default function TabsLayout() {
         name="collection"
         options={{
           title: "COLLECTION",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="albums-outline" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="albums-outline" size={iconSize} color={color} />
           ),
         }}
       />
@@ -36,8 +55,8 @@ export default function TabsLayout() {
         name="history"
         options={{
           title: "HISTORY",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="time-outline" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="time-outline" size={iconSize} color={color} />
           ),
         }}
       />
@@ -45,8 +64,8 @@ export default function TabsLayout() {
         name="settings"
         options={{
           title: "SETTINGS",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="settings-outline" size={iconSize} color={color} />
           ),
         }}
       />
@@ -59,9 +78,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopColor: colors.divider,
     borderTopWidth: 1,
-    height: 88,
-    paddingTop: 12,
-    paddingBottom: 32,
     elevation: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
