@@ -65,9 +65,9 @@ function frameSimilarity(a: number[] | null, b: number[]): number {
   return denom > 0 ? dot / denom : 0;
 }
 
-function formatUSD(v: number | null | undefined) {
+function formatPrice(v: number | null | undefined) {
   if (v == null || isNaN(v)) return "—";
-  return `$${v.toFixed(2)}`;
+  return `£${v.toFixed(2)}`;
 }
 
 export default function ScannerScreen() {
@@ -662,7 +662,7 @@ export default function ScannerScreen() {
                   <View style={styles.priceMain}>
                     <Text style={styles.priceLabel}>MARKET</Text>
                     <Text style={styles.priceBig} testID="price-market">
-                      {formatUSD(card.price.market ?? card.price.mid)}
+                      {formatPrice(card.price.market ?? card.price.mid)}
                     </Text>
                   </View>
                   <View style={styles.priceBreakdown}>
@@ -794,7 +794,7 @@ function PriceCell({ label, value }: { label: string; value: number | null | und
   return (
     <View style={styles.priceCell}>
       <Text style={styles.priceCellLabel}>{label}</Text>
-      <Text style={styles.priceCellValue}>{formatUSD(value)}</Text>
+      <Text style={styles.priceCellValue}>{formatPrice(value)}</Text>
     </View>
   );
 }

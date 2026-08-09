@@ -385,7 +385,7 @@ def _best_variant_price(variants: List[dict]) -> tuple[CardPrice, Optional[str]]
 async def _justtcg_query(name: str, game: str, number: Optional[str] = None, set_hint: Optional[str] = None) -> List[dict]:
     if not JUSTTCG_API_KEY:
         return []
-    params = {"q": name, "game": game, "limit": 20}
+    params = {"q": name, "game": game, "limit": 20, "currency": "GBP"}
     headers = {"x-api-key": JUSTTCG_API_KEY}
     try:
         async with httpx.AsyncClient(timeout=5) as client:
