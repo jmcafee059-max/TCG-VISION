@@ -1,23 +1,33 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { useEffect } from "react";
+import { LogBox } from "react-native";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+
+// Disable logbox errors etc so that users can see the app
+// and agent works as expected.
+LogBox.ignoreAllLogs(true)
+
+// Keep the native splash visible from cold start until icon fonts register.
+// Required because @expo/vector-icons' componentDidMount fallback fires
+// Font.loadAsync against a broken vendor path if any <Icon> mounts before
+// the family is registered — which throws on Android Expo Go.
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const [loaded, error] = useIconFonts();
 
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
-  );
+  useEffect(() => {
+    if (loaded || error) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded, error]);
+
+  // If the CDN is unreachable we fall through on error rather than wedging
+  // the app — icons will tofu, but the app still boots.
+  if (!loaded && !error) return null;
+
+  return <Stack screenOptions={{ headerShown: false }} />;
 }

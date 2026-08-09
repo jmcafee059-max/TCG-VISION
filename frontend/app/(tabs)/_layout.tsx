@@ -1,19 +1,66 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Tabs } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { colors } from "@/src/theme";
+import { StyleSheet } from "react-native";
 
-export default function TabLayout() {
+export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: { display: 'none' },
-      }}>
+        tabBarStyle: styles.tabBar,
+        tabBarActiveTintColor: colors.brand,
+        tabBarInactiveTintColor: colors.onSurfaceTertiary,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "600", letterSpacing: 0.4 },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'TCG Vision',
+          title: "SCANNER",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="scan-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="collection"
+        options={{
+          title: "COLLECTION",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="albums-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: "HISTORY",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="time-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "SETTINGS",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings-outline" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: colors.surface,
+    borderTopColor: colors.divider,
+    borderTopWidth: 1,
+    height: 78,
+    paddingTop: 8,
+    paddingBottom: 20,
+  },
+});

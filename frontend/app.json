@@ -6,29 +6,59 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "tcgvision",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": false,
     "extra": {
       "EXPO_PUBLIC_BACKEND_URL": "https://tcg-vision-production.up.railway.app"
     },
     "ios": {
-      "supportsTablet": false,
-      "bundleIdentifier": "com.tcgvision.app"
+      "supportsTablet": true,
+      "bundleIdentifier": "com.emergent.tcgvisionai.bsi5we",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Scan Pokemon cards to check prices",
+        "NSMicrophoneUsageDescription": "Ask questions about card prices by voice"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#C0C0C0",
-        "foregroundImage": "./assets/images/icon.png"
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#050915"
       },
-      "package": "com.tcgvision.app",
+      "edgeToEdgeEnabled": true,
+      "package": "com.emergent.tcgvisionai.bsi5we",
       "permissions": [
-        "CAMERA",
-        "CAMERA_ROLL"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       "expo-router",
-      "expo-camera"
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-image.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#050915"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Scan Pokemon cards to check prices"
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Ask questions about card prices by voice"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
