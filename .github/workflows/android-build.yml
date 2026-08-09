@@ -37,6 +37,7 @@ jobs:
       working-directory: ./frontend
       run: |
         echo "EXPO_PUBLIC_BACKEND_URL=https://tcg-vision-production.up.railway.app" >> $GITHUB_ENV
+        echo "NODE_ENV=production" >> $GITHUB_ENV
         
     - name: Create .env file
       working-directory: ./frontend

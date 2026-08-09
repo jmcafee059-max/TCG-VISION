@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "tcgvision",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "extra": {
       "EXPO_PUBLIC_BACKEND_URL": "https://tcg-vision-production.up.railway.app"
     },
