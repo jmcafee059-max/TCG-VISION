@@ -1,0 +1,64 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+      
+    - name: Setup environment
+      working-directory: ./frontend
+      run: |
+        echo "EXPO_PUBLIC_BACKEND_URL=https://tcg-vision-production.up.railway.app" >> $GITHUB_ENV
+        
+    - name: Create .env file
+      working-directory: ./frontend
+      run: |
+        echo "EXPO_PUBLIC_BACKEND_URL=https://tcg-vision-production.up.railway.app" > .env
+        
+    - name: Run expo prebuild
+      working-directory: ./frontend
+      run: npx expo prebuild --clean
+      
+    - name: Grant execute permission for gradlew
+      working-directory: ./frontend/android
+      run: chmod +x gradlew
+      
+    - name: Build APK
+      working-directory: ./frontend/android
+      run: ./gradlew assembleRelease --no-daemon
+      
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: tcg-vision-apk
+        path: frontend/android/app/build/outputs/apk/release/app-release.apk
