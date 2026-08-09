@@ -25,9 +25,23 @@ import CardDetailSheet, { DetailCard } from "@/src/components/CardDetailSheet";
 
 const { width } = Dimensions.get("window");
 
-function formatUSD(v: number | null | undefined) {
+function formatGBP(v: number | null | undefined) {
   if (v == null || isNaN(v)) return "—";
-  return `$${v.toFixed(2)}`;
+  return `£${v.toFixed(2)}`;
+}
+
+// Fetch scanned sets for binder creation
+async function getScannedSets(): Promise<Set<string>> {
+  try {
+    const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/scanned-sets`);
+    if (response.ok) {
+      const data = await response.json();
+      return new Set(data.sets.map((s: any) => s.name));
+    }
+  } catch (e) {
+    console.error("Failed to fetch scanned sets:", e);
+  }
+  return new Set();
 }
 
 // -------- Binder page (3x3) --------
@@ -85,7 +99,7 @@ function BinderPage({
               )}
               {c.price_market != null ? (
                 <View style={pageStyles.slotPricePill}>
-                  <Text style={pageStyles.slotPriceText}>{formatUSD(c.price_market)}</Text>
+                  <Text style={pageStyles.slotPriceText}>{formatGBP(c.price_market)}</Text>
                 </View>
               ) : null}
               {c.number ? (
@@ -175,7 +189,7 @@ function SetFolder({
             {setName}
           </Text>
           <Text style={folderStyles.meta}>
-            {items.length} card{items.length === 1 ? "" : "s"} · {formatUSD(totalValue)}
+            {items.length} card{items.length === 1 ? "" : "s"} · {formatGBP(totalValue)}
           </Text>
         </View>
         <Ionicons
@@ -214,11 +228,14 @@ export default function CollectionScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [detail, setDetail] = useState<DetailCard | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [scannedSets, setScannedSets] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
       const d = await getCollection();
       setData(d);
+      const scanned = await getScannedSets();
+      setScannedSets(scanned);
     } catch {
       setData({ total_cards: 0, total_value: 0, by_set: [], all_by_price: [] });
     }
@@ -264,6 +281,12 @@ export default function CollectionScreen() {
 
   const priceGridCellSize = (width - spacing.lg * 2 - 6 * 2) / 3;
 
+  // Filter binder folders to only show newly scanned sets
+  const filteredBySet = useMemo(() => {
+    if (!data) return [];
+    return data.by_set.filter(g => scannedSets.has(g.set_name));
+  }, [data, scannedSets]);
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]} testID="collection-screen">
       <View style={styles.header}>
@@ -293,7 +316,7 @@ export default function CollectionScreen() {
           {/* Total value hero */}
           <View style={styles.hero} testID="collection-total">
             <Text style={styles.heroLabel}>PORTFOLIO VALUE</Text>
-            <Text style={styles.heroValue}>{formatUSD(data.total_value)}</Text>
+            <Text style={styles.heroValue}>{formatGBP(data.total_value)}</Text>
             <View style={styles.heroChips}>
               <View style={styles.heroChip}>
                 <Ionicons name="albums-outline" size={12} color={colors.onBrandTertiary} />
@@ -325,7 +348,7 @@ export default function CollectionScreen() {
                     </View>
                   )}
                   <View style={styles.pricePill}>
-                    <Text style={styles.pricePillText}>{formatUSD(c.price_market)}</Text>
+                    <Text style={styles.pricePillText}>{formatGBP(c.price_market)}</Text>
                   </View>
                 </Pressable>
               ))}
@@ -334,17 +357,23 @@ export default function CollectionScreen() {
 
           {/* Set folders */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>BINDER FOLDERS</Text>
-            {data.by_set.map((g) => (
-              <SetFolder
-                key={g.set_name}
-                setName={g.set_name}
-                items={g.items}
-                totalValue={g.total_value}
-                onRemove={onRemove}
-                onOpen={openDetail}
-              />
-            ))}
+            <Text style={styles.sectionTitle}>BINDER FOLDERS (NEWLY SCANNED SETS)</Text>
+            {filteredBySet.length === 0 ? (
+              <Text style={styles.emptySub}>
+                Scan a card from a new set to create a 3x3 binder folder.
+              </Text>
+            ) : (
+              filteredBySet.map((g) => (
+                <SetFolder
+                  key={g.set_name}
+                  setName={g.set_name}
+                  items={g.items}
+                  totalValue={g.total_value}
+                  onRemove={onRemove}
+                  onOpen={openDetail}
+                />
+              ))
+            )}
           </View>
 
           <Text style={styles.footerHint}>Tap a card to view details · long-press to remove.</Text>

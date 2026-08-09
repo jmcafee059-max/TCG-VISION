@@ -1,14 +1,5 @@
-import React, { useEffect } from "react";
-import { View, StyleSheet } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-  cancelAnimation,
-  Easing,
-} from "react-native-reanimated";
+import React, { useEffect, useRef } from "react";
+import { View, StyleSheet, Animated } from "react-native";
 import { colors, radius } from "@/src/theme";
 
 const RETICLE_W = 240;
@@ -21,49 +12,91 @@ type Props = {
 };
 
 export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Props) {
-  const sweep = useSharedValue(0);
-  const glow = useSharedValue(0);
-  const pulseVal = useSharedValue(0);
+  const sweepAnim = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (scanning) {
-      sweep.value = 0;
-      sweep.value = withRepeat(
-        withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true,
-      );
-      glow.value = withTiming(1, { duration: 250 });
+      sweepAnim.setValue(0);
+      Animated.loop(
+        Animated.timing(sweepAnim, {
+          toValue: 1,
+          duration: 1400,
+          useNativeDriver: true,
+        })
+      ).start();
+      Animated.timing(glowAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
     } else {
-      cancelAnimation(sweep);
-      sweep.value = withTiming(0, { duration: 200 });
-      glow.value = withTiming(0, { duration: 250 });
+      sweepAnim.stopAnimation();
+      Animated.timing(sweepAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(glowAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
     }
-  }, [scanning, sweep, glow]);
+  }, [scanning, sweepAnim, glowAnim]);
 
   useEffect(() => {
     if (pulse) {
-      pulseVal.value = 0;
-      pulseVal.value = withSequence(
-        withTiming(1, { duration: 200, easing: Easing.out(Easing.quad) }),
-        withTiming(0, { duration: 500, easing: Easing.in(Easing.quad) }),
-      );
+      pulseAnim.setValue(0);
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
-  }, [pulse, pulseVal]);
+  }, [pulse, pulseAnim]);
 
-  const sweepStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: sweep.value * (RETICLE_H - 3) }],
-    opacity: 0.5 + glow.value * 0.5,
-  }));
+  const sweepStyle = {
+    transform: [
+      {
+        translateY: sweepAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, RETICLE_H - 3],
+        }),
+      },
+    ],
+    opacity: glowAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.5, 1],
+    }),
+  };
 
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: 0.15 + glow.value * 0.35,
-  }));
+  const glowStyle = {
+    opacity: glowAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.15, 0.5],
+    }),
+  };
 
-  const pulseStyle = useAnimatedStyle(() => ({
-    opacity: pulseVal.value,
-    transform: [{ scale: 1 + pulseVal.value * 0.08 }],
-  }));
+  const pulseStyle = {
+    opacity: pulseAnim,
+    transform: [
+      {
+        scale: pulseAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 1.08],
+        }),
+      },
+    ],
+  };
 
   const bracketColor =
     lockState === "locked"

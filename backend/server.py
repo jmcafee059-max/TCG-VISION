@@ -40,15 +40,19 @@ logging.basicConfig(
 logger = logging.getLogger("tcg-vision")
 
 # ---- Mongo ----
-try:
-    mongo_client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=2000)
-    db = mongo_client[DB_NAME]
-    mongo_available = True
-except Exception as e:
-    logger.warning(f"MongoDB not available: {e}. Running without database.")
-    mongo_client = None
-    db = None
-    mongo_available = False
+# MongoDB is not running - use in-memory storage instead
+mongo_available = False
+mongo_client = None
+db = None
+logger.warning("MongoDB disabled - using in-memory storage")
+
+# In-memory storage (since MongoDB is not available)
+# These are defined here to avoid circular references with models
+_collection_memory = {}
+_collection_lock = asyncio.Lock()
+_history_memory = []
+_history_lock = asyncio.Lock()
+_scanned_sets = {}
 
 # ---- OpenAI ----
 from openai import AsyncOpenAI
@@ -109,6 +113,7 @@ class CollectionSummary(BaseModel):
     all_by_price: List[CollectionItem]
     most_expensive_card: Optional[CollectionItem] = None  # Single most expensive card
 
+
 class CardCandidate(BaseModel):
     name: str
     set_name: Optional[str] = None
@@ -138,6 +143,7 @@ class CardInfo(BaseModel):
     scanned_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     ambiguous: bool = False
     candidates: List[CardCandidate] = Field(default_factory=list)
+
 
 class VoiceChatRequest(BaseModel):
     text: str
@@ -182,6 +188,7 @@ class GradeEstimateResponse(BaseModel):
     overall_label: Optional[str] = None  # e.g. "PSA 8 (NM-MT)"
     notes: Optional[str] = None
     disclaimer: str
+
 
 # ---- Vision identification ----
 # Using OpenAI GPT-4o for vision
@@ -403,24 +410,37 @@ async def _justtcg_query(name: str, game: str, number: Optional[str] = None, set
 
 def _rank_candidate(c: dict, name: str, number: Optional[str], set_hint: Optional[str]) -> int:
     score = 0
-    if (c.get("name") or "").lower() == name.lower():
-        score += 40
-    elif name.lower() in (c.get("name") or "").lower():
-        score += 20
+    card_name = (c.get("name") or "").lower()
+    name_lower = name.lower()
+    
+    # Exact name match is critical - give it much higher weight
+    if card_name == name_lower:
+        score += 150  # Increased from 100
+    elif name_lower in card_name:
+        # Partial match only gets points if it's a substantial part of the name
+        if len(name_lower) >= 4 and len(name_lower) / len(card_name) >= 0.7:
+            score += 30  # Increased from 20
+        else:
+            score += 5  # Minimal points for weak partial matches
+    
     cn = _num_key(c.get("number"))
     if number and cn and cn == _num_key(number):
-        score += 60  # number match is the strongest signal — heavily prefer it
+        score += 120  # Increased from 80
+    
     if set_hint:
         sh = set_hint.lower()
         sn = (c.get("set_name") or "").lower()
         if sh in sn or sn in sh:
-            score += 30
+            score += 60  # Increased from 40
         toks = [t for t in sh.replace("&", " ").split() if len(t) > 2]
         if toks and any(t in sn for t in toks):
-            score += 8
-    variants = c.get("variants") or []
-    if any(isinstance(v.get("price"), (int, float)) for v in variants):
-        score += 10
+            score += 25  # Increased from 15
+    
+    # Remove price availability weight entirely - it was causing wrong matches
+    # variants = c.get("variants") or []
+    # if any(isinstance(v.get("price"), (int, float)) for v in variants):
+    #     score += 5
+    
     return score
 
 
@@ -789,32 +809,59 @@ async def scan_card(req: ScanRequest):
             ),
         )
 
-    # Save to history (optional)
-    if mongo_available:
-        try:
-            doc = info.model_dump()
-            doc["price"] = info.price.model_dump()
-            await db.scans.insert_one({**doc, "_id": info.id})
-        except Exception as e:
-            logger.warning(f"Failed to save to history: {e}")
+    # Save to history (in-memory)
+    async with _history_lock:
+        _history_memory.insert(0, info)
+        if len(_history_memory) > 100:  # Keep last 100 scans
+            _history_memory.pop()
+    
+    # Auto-add to collection if card is identified
+    if info.identified and info.name:
+        pos, tot = _parse_number_int(info.number)
+        key = f"{info.name}|{info.set_name or ''}|{info.number or ''}"
+        
+        async with _collection_lock:
+            if key not in _collection_memory:
+                _collection_memory[key] = CollectionItem(
+                    id=str(uuid.uuid4()),
+                    name=info.name,
+                    set_name=info.set_name,
+                    number=info.number,
+                    number_int=pos,
+                    total_in_set=tot,
+                    rarity=info.rarity,
+                    language=info.language,
+                    image_url=info.image_url,
+                    price_market=info.price.market if info.price else None,
+                    added_at=datetime.now(timezone.utc).isoformat(),
+                )
+        
+        # Track new sets for binder creation
+        if info.set_name and info.set_name not in _scanned_sets:
+            if tot and tot > 0:
+                _scanned_sets[info.set_name] = tot
+                logger.info(f"New set scanned: {info.set_name} (total: {tot})")
+    
     return info
 
 
 @api.get("/history", response_model=List[CardInfo])
 async def get_history(limit: int = 50):
-    if not mongo_available:
-        return []
-    cursor = db.scans.find({"identified": True}, {"_id": 0}).sort("scanned_at", -1).limit(limit)
-    docs = await cursor.to_list(length=limit)
-    return [CardInfo(**d) for d in docs]
+    async with _history_lock:
+        return _history_memory[:limit]
 
 
 @api.delete("/history")
 async def clear_history():
-    if not mongo_available:
-        return {"ok": True}
-    await db.scans.delete_many({})
+    async with _history_lock:
+        _history_memory.clear()
     return {"ok": True}
+
+
+@api.get("/scanned-sets")
+async def get_scanned_sets():
+    """Return sets that have been scanned for binder creation"""
+    return {"sets": [{"name": set_name, "total_in_set": total} for set_name, total in _scanned_sets.items()]}
 
 
 @api.post("/voice/transcribe")
@@ -1061,64 +1108,43 @@ async def add_to_collection(req: AddToCollectionRequest):
     if not req.name.strip():
         raise HTTPException(400, "name required")
 
-    if not mongo_available:
-        # Return a mock response when DB is not available
-        return CollectionItem(
+    pos, tot = _parse_number_int(req.number)
+    key = f"{req.name}|{req.set_name or ''}|{req.number or ''}"
+    
+    async with _collection_lock:
+        if key in _collection_memory:
+            # Update existing
+            existing = _collection_memory[key]
+            if req.price_market is not None:
+                existing.price_market = req.price_market
+            if req.image_url:
+                existing.image_url = req.image_url
+            existing.added_at = datetime.now(timezone.utc).isoformat()
+            return existing
+        
+        # Create new
+        item = CollectionItem(
             id=str(uuid.uuid4()),
             name=req.name,
             set_name=req.set_name,
             number=req.number,
-            number_int=_parse_number_int(req.number)[0],
-            total_in_set=_parse_number_int(req.number)[1],
+            number_int=pos,
+            total_in_set=tot,
             rarity=req.rarity,
             language=req.language,
             image_url=req.image_url,
             price_market=req.price_market,
             added_at=datetime.now(timezone.utc).isoformat(),
         )
-
-    pos, tot = _parse_number_int(req.number)
-    key = {
-        "name": req.name,
-        "set_name": req.set_name or None,
-        "number": req.number or None,
-    }
-    # Update if exists; else insert
-    existing = await db.collection_items.find_one(key, {"_id": 0})
-    if existing:
-        # bump last-seen price / image if present
-        update = {"$set": {"added_at": datetime.now(timezone.utc).isoformat()}}
-        if req.price_market is not None:
-            update["$set"]["price_market"] = req.price_market
-        if req.image_url:
-            update["$set"]["image_url"] = req.image_url
-        await db.collection_items.update_one(key, update)
-        merged = {**existing, **update["$set"]}
-        return CollectionItem(**merged)
-
-    item = CollectionItem(
-        name=req.name,
-        set_name=req.set_name,
-        number=req.number,
-        number_int=pos,
-        total_in_set=tot,
-        rarity=req.rarity,
-        language=req.language,
-        image_url=req.image_url,
-        price_market=req.price_market,
-    )
-    doc = item.model_dump()
-    await db.collection_items.insert_one({**doc, "_id": item.id})
-    return item
+        _collection_memory[key] = item
+        return item
 
 
 @api.get("/collection", response_model=CollectionSummary)
 async def get_collection():
-    if not mongo_available:
-        return CollectionSummary(total_cards=0, total_value=0.0, by_set=[], all_by_price=[])
-    cursor = db.collection_items.find({}, {"_id": 0})
-    items_raw = await cursor.to_list(length=5000)
-    items = [CollectionItem(**d) for d in items_raw]
+    async with _collection_lock:
+        items = list(_collection_memory.values())
+    
     total_value = sum((i.price_market or 0.0) for i in items)
 
     # Sort all by price desc for the "mixed in price order" grid
@@ -1126,61 +1152,54 @@ async def get_collection():
         items, key=lambda i: (i.price_market or 0.0), reverse=True
     )
 
-    # Get most expensive card
-    most_expensive_card = all_by_price[0] if all_by_price else None
-
-    # Group by set, cards inside sorted by number_int asc (set order)
-    groups: dict[str, List[CollectionItem]] = {}
-    for i in items:
-        key = i.set_name or "Unknown Set"
-        groups.setdefault(key, []).append(i)
-    by_set: List[CollectionSetGroup] = []
-    for set_name, arr in groups.items():
-        arr_sorted = sorted(
-            arr, key=lambda i: (i.number_int if i.number_int is not None else 9999)
-        )
-        
-        # Calculate set completion
-        total_in_set = max((i.total_in_set for i in arr_sorted if i.total_in_set), default=None)
-        completion_percentage = None
-        if total_in_set and total_in_set > 0:
-            completion_percentage = round((len(arr_sorted) / total_in_set) * 100, 1)
-        
-        by_set.append(
-            CollectionSetGroup(
-                set_name=set_name,
-                count=len(arr_sorted),
-                total_value=sum((i.price_market or 0.0) for i in arr_sorted),
-                items=arr_sorted,
-                completion_percentage=completion_percentage,
-                total_in_set=total_in_set,
-            )
-        )
-    # Sort sets by count desc then name
-    by_set.sort(key=lambda g: (-g.count, g.set_name.lower()))
+    # Group by set
+    by_set_dict: Dict[str, List[CollectionItem]] = {}
+    for item in items:
+        set_name = item.set_name or "Unknown"
+        if set_name not in by_set_dict:
+            by_set_dict[set_name] = []
+        by_set_dict[set_name].append(item)
+    
+    by_set = [
+        {
+            "set_name": set_name,
+            "count": len(items),
+            "total_value": sum((i.price_market or 0.0) for i in items),
+            "items": sorted(items, key=lambda i: (i.number_int or 0))
+        }
+        for set_name, items in by_set_dict.items()
+    ]
+    by_set.sort(key=lambda x: x["set_name"])
 
     return CollectionSummary(
         total_cards=len(items),
-        total_value=round(total_value, 2),
+        total_value=total_value,
         by_set=by_set,
-        all_by_price=all_by_price,
-        most_expensive_card=most_expensive_card,
+        all_by_price=all_by_price
     )
+
+
+@api.post("/collection/clear")
+async def force_clear_collection():
+    """Force clear collection to fix data format issues"""
+    async with _collection_lock:
+        _collection_memory.clear()
+    return {"ok": True, "message": "Collection cleared"}
 
 
 @api.delete("/collection/{item_id}")
 async def remove_from_collection(item_id: str):
-    if not mongo_available:
-        return {"ok": True, "deleted": 0}
-    result = await db.collection_items.delete_one({"_id": item_id})
-    return {"ok": True, "deleted": result.deleted_count}
+    async with _collection_lock:
+        keys_to_delete = [key for key, item in _collection_memory.items() if item.id == item_id]
+        for key in keys_to_delete:
+            del _collection_memory[key]
+    return {"ok": True, "deleted": len(keys_to_delete)}
 
 
 @api.delete("/collection")
 async def clear_collection():
-    if not mongo_available:
-        return {"ok": True}
-    await db.collection_items.delete_many({})
+    async with _collection_lock:
+        _collection_memory.clear()
     return {"ok": True}
 
 
