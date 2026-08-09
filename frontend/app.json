@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "TCG Vision",
+    "slug": "tcg-vision",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "tcgvision",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.tcgvision.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#C0C0C0",
+        "foregroundImage": "./assets/images/icon.png"
+      },
+      "package": "com.tcgvision.app",
+      "permissions": [
+        "CAMERA",
+        "CAMERA_ROLL"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-camera"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
