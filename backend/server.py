@@ -815,33 +815,6 @@ async def scan_card(req: ScanRequest):
         if len(_history_memory) > 100:  # Keep last 100 scans
             _history_memory.pop()
     
-    # Auto-add to collection if card is identified
-    if info.identified and info.name:
-        pos, tot = _parse_number_int(info.number)
-        key = f"{info.name}|{info.set_name or ''}|{info.number or ''}"
-        
-        async with _collection_lock:
-            if key not in _collection_memory:
-                _collection_memory[key] = CollectionItem(
-                    id=str(uuid.uuid4()),
-                    name=info.name,
-                    set_name=info.set_name,
-                    number=info.number,
-                    number_int=pos,
-                    total_in_set=tot,
-                    rarity=info.rarity,
-                    language=info.language,
-                    image_url=info.image_url,
-                    price_market=info.price.market if info.price else None,
-                    added_at=datetime.now(timezone.utc).isoformat(),
-                )
-        
-        # Track new sets for binder creation
-        if info.set_name and info.set_name not in _scanned_sets:
-            if tot and tot > 0:
-                _scanned_sets[info.set_name] = tot
-                logger.info(f"New set scanned: {info.set_name} (total: {tot})")
-    
     return info
 
 
