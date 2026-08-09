@@ -21,7 +21,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundColor": "#050915"
       },
       "edgeToEdgeEnabled": true,
@@ -51,12 +51,6 @@
         "expo-camera",
         {
           "cameraPermission": "Scan Pokemon cards to check prices"
-        }
-      ],
-      [
-        "expo-audio",
-        {
-          "microphonePermission": "Ask questions about card prices by voice"
         }
       ]
     ],
