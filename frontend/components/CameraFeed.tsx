@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import Constants from 'expo-constants';
 
 interface CameraFeedProps {
   onCardIdentified: (data: any) => void;
@@ -39,7 +40,8 @@ export default function CameraFeed({ onCardIdentified, isScanning, setIsScanning
       });
 
       if (photo && photo.base64) {
-        const response = await fetch('http://localhost:3000/api/scan-card', {
+        const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+        const response = await fetch(`${backendUrl}/api/scan-card`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: `data:image/jpeg;base64,${photo.base64}` }),
