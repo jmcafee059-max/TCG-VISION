@@ -706,8 +706,7 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
           <Animated.View style={[styles.aiParticle, artParticle3Style, { backgroundColor: bracketColor }]} />
         </Animated.View>
         
-        {/* Scanning grid effect */}
-        <Animated.View style={[styles.scanGrid, gridStyle]} />
+        {/* Scanning grid effect - removed for crystal clear view */}
         
         {/* Corner brackets — color reflects lock state */}
         <View style={[styles.corner, styles.tl, { borderColor: bracketColor }]} />
@@ -750,6 +749,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "transparent",
   },
   reticle: {
     width: RETICLE_W,
@@ -805,8 +805,8 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     shadowColor: colors.brand,
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
+    shadowOpacity: 0,
+    shadowRadius: 0,
     shadowOffset: { width: 0, height: 0 },
   },
   sweepLine: {
@@ -840,8 +840,8 @@ const styles = StyleSheet.create({
     borderColor: colors.brand,
     borderRadius: radius.sm,
     shadowColor: colors.brand,
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
+    shadowOpacity: 0,
+    shadowRadius: 0,
     shadowOffset: { width: 0, height: 0 },
   },
   sweep: {
@@ -860,14 +860,14 @@ const styles = StyleSheet.create({
     height: 20,
     marginTop: -18,
     backgroundColor: colors.brand,
-    opacity: 0.15,
+    opacity: 0,
     borderRadius: 10,
   },
   sweepBottomBlur: {
     height: 20,
     marginTop: 0,
     backgroundColor: colors.brand,
-    opacity: 0.15,
+    opacity: 0,
     borderRadius: 10,
   },
   sweepGlow: {
@@ -877,14 +877,14 @@ const styles = StyleSheet.create({
     height: 30,
     marginTop: -13,
     backgroundColor: colors.brand,
-    opacity: 0.08,
+    opacity: 0,
     borderRadius: 15,
   },
   sweepBlur: {
     height: 24,
     marginTop: -14,
     backgroundColor: colors.brand,
-    opacity: 0.18,
+    opacity: 0,
     borderRadius: 12,
   },
   pulse: {
@@ -893,8 +893,8 @@ const styles = StyleSheet.create({
     borderColor: colors.success,
     borderRadius: radius.md,
     shadowColor: colors.success,
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
+    shadowOpacity: 0,
+    shadowRadius: 0,
     shadowOffset: { width: 0, height: 0 },
   },
   cornerDot: { position: "absolute", width: 6, height: 6, borderRadius: 3, backgroundColor: colors.brand },
