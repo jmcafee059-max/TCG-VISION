@@ -413,33 +413,37 @@ def _rank_candidate(c: dict, name: str, number: Optional[str], set_hint: Optiona
     card_name = (c.get("name") or "").lower()
     name_lower = name.lower()
     
-    # Exact name match is critical - give it much higher weight
+    # ABSOLUTE PRIORITY: Number match is non-negotiable
+    cn = _num_key(c.get("number"))
+    if number and cn:
+        if cn == _num_key(number):
+            score += 1000  # Massive priority for exact number match
+        else:
+            # Wrong number - heavily penalize
+            return -1000  # This should never be chosen
+    
+    # Exact name match is critical
     if card_name == name_lower:
-        score += 200  # Increased from 150
+        score += 200
     elif name_lower in card_name:
         # Partial match only gets points if it's a substantial part of the name
         if len(name_lower) >= 4 and len(name_lower) / len(card_name) >= 0.7:
-            score += 40  # Increased from 30
+            score += 40
         else:
-            score += 5  # Minimal points for weak partial matches
+            score += 5
     
-    cn = _num_key(c.get("number"))
-    if number and cn and cn == _num_key(number):
-        score += 200  # Increased from 120 - number match is critical
-    
+    # Set match is very important
     if set_hint:
         sh = set_hint.lower()
         sn = (c.get("set_name") or "").lower()
         if sh in sn or sn in sh:
-            score += 100  # Increased from 60 - set match is very important
+            score += 300  # Increased significantly - set match is critical
         toks = [t for t in sh.replace("&", " ").split() if len(t) > 2]
         if toks and any(t in sn for t in toks):
-            score += 40  # Increased from 25
-    
-    # Remove price availability weight entirely - it was causing wrong matches
-    # variants = c.get("variants") or []
-    # if any(isinstance(v.get("price"), (int, float)) for v in variants):
-    #     score += 5
+            score += 100
+        else:
+            # Wrong set - penalize
+            score -= 200
     
     return score
 
