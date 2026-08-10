@@ -22,6 +22,11 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
   const nameScanAnim = useRef(new Animated.Value(0)).current;
   const numberScanAnim = useRef(new Animated.Value(0)).current;
   const artScanAnim = useRef(new Animated.Value(0)).current;
+  
+  // Sweep position animations for each region
+  const nameSweepPos = useRef(new Animated.Value(0)).current;
+  const numberSweepPos = useRef(new Animated.Value(0)).current;
+  const artScanScale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (scanning) {
@@ -31,6 +36,9 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
       nameScanAnim.setValue(0);
       numberScanAnim.setValue(0);
       artScanAnim.setValue(0);
+      nameSweepPos.setValue(0);
+      numberSweepPos.setValue(0);
+      artScanScale.setValue(0);
       
       // Sweep animation
       Animated.loop(
@@ -66,41 +74,83 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
         })
       ).start();
       
-      // Region-specific scanning sequence
+      // Region-specific scanning sequence with sweeping motions
       const scanSequence = Animated.sequence([
-        // Scan name region (top left)
-        Animated.timing(nameScanAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.timing(nameScanAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        // Scan number region (bottom left)
-        Animated.timing(numberScanAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.timing(numberScanAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        // Scan artwork region (center)
-        Animated.timing(artScanAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.timing(artScanAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
+        // Scan name region (top left) - horizontal sweep
+        Animated.parallel([
+          Animated.timing(nameScanAnim, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(nameSweepPos, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(nameScanAnim, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(nameSweepPos, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]),
+        // Scan number region (bottom left) - horizontal sweep
+        Animated.parallel([
+          Animated.timing(numberScanAnim, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(numberSweepPos, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(numberScanAnim, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(numberSweepPos, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]),
+        // Scan artwork region (center) - outward expanding scan
+        Animated.parallel([
+          Animated.timing(artScanAnim, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(artScanScale, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(artScanAnim, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(artScanScale, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]),
       ]);
       
       Animated.loop(scanSequence).start();
@@ -117,6 +167,9 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
       nameScanAnim.stopAnimation();
       numberScanAnim.stopAnimation();
       artScanAnim.stopAnimation();
+      nameSweepPos.stopAnimation();
+      numberSweepPos.stopAnimation();
+      artScanScale.stopAnimation();
       
       Animated.timing(sweepAnim, {
         toValue: 0,
@@ -148,13 +201,28 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
         duration: 200,
         useNativeDriver: true,
       }).start();
+      Animated.timing(nameSweepPos, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(numberSweepPos, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(artScanScale, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
       Animated.timing(glowAnim, {
         toValue: 0,
         duration: 250,
         useNativeDriver: true,
       }).start();
     }
-  }, [scanning, sweepAnim, glowAnim, scaleAnim, gridAnim, nameScanAnim, numberScanAnim, artScanAnim]);
+  }, [scanning, sweepAnim, glowAnim, scaleAnim, gridAnim, nameScanAnim, numberScanAnim, artScanAnim, nameSweepPos, numberSweepPos, artScanScale]);
 
   useEffect(() => {
     if (pulse) {
@@ -232,6 +300,39 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
       outputRange: [0, 0.8],
     }),
   };
+  
+  const nameSweepStyle = {
+    transform: [
+      {
+        translateX: nameSweepPos.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 80],
+        }),
+      },
+    ],
+  };
+  
+  const numberSweepStyle = {
+    transform: [
+      {
+        translateX: numberSweepPos.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 80],
+        }),
+      },
+    ],
+  };
+  
+  const artScanScaleStyle = {
+    transform: [
+      {
+        scale: artScanScale.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 1.5],
+        }),
+      },
+    ],
+  };
 
   const scaleStyle = {
     transform: [
@@ -259,14 +360,20 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
     <View style={styles.wrap} pointerEvents="none">
       <Animated.View style={[styles.reticle, scaleStyle]}>
         {/* Region-specific scanning indicators */}
-        {/* Name region scan (top left) */}
-        <Animated.View style={[styles.scanRegion, styles.nameRegion, nameScanStyle, { borderColor: bracketColor }]} />
+        {/* Name region scan (top left) - horizontal sweep */}
+        <Animated.View style={[styles.scanRegion, styles.nameRegion, nameScanStyle, { borderColor: bracketColor }]}>
+          <Animated.View style={[styles.sweepLine, nameSweepStyle, { backgroundColor: bracketColor }]} />
+        </Animated.View>
         
-        {/* Number region scan (bottom left) */}
-        <Animated.View style={[styles.scanRegion, styles.numberRegion, numberScanStyle, { borderColor: bracketColor }]} />
+        {/* Number region scan (bottom left) - horizontal sweep */}
+        <Animated.View style={[styles.scanRegion, styles.numberRegion, numberScanStyle, { borderColor: bracketColor }]}>
+          <Animated.View style={[styles.sweepLine, numberSweepStyle, { backgroundColor: bracketColor }]} />
+        </Animated.View>
         
-        {/* Artwork region scan (center) */}
-        <Animated.View style={[styles.scanRegion, styles.artRegion, artScanStyle, { borderColor: bracketColor }]} />
+        {/* Artwork region scan (center) - outward expanding scan */}
+        <Animated.View style={[styles.scanRegion, styles.artRegion, artScanStyle, { borderColor: bracketColor }]}>
+          <Animated.View style={[styles.expandRing, artScanScaleStyle, { borderColor: bracketColor }]} />
+        </Animated.View>
         
         {/* Scanning grid effect */}
         <Animated.View style={[styles.scanGrid, gridStyle]} />
@@ -360,6 +467,25 @@ const styles = StyleSheet.create({
     left: 60,
     width: 120,
     height: 150,
+  },
+  sweepLine: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3,
+    borderRadius: 2,
+  },
+  expandRing: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    marginTop: -30,
+    marginLeft: -30,
+    width: 60,
+    height: 60,
+    borderWidth: 2,
+    borderRadius: 30,
   },
   scanGrid: {
     ...StyleSheet.absoluteFillObject,
