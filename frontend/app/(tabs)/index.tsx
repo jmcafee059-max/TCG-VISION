@@ -800,10 +800,10 @@ function PriceCell({ label, value }: { label: string; value: number | null | und
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.surface },
+  root: { flex: 1, backgroundColor: "#000" },
   center: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: "#000",
     alignItems: "center",
     justifyContent: "center",
     padding: spacing.xl,
