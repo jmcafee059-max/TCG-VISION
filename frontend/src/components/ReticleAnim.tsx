@@ -15,31 +15,28 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
   const sweepAnim = useRef(new Animated.Value(0)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(0)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const gridAnim = useRef(new Animated.Value(0)).current;
+  
+  // Region-specific scanning animations
+  const nameScanAnim = useRef(new Animated.Value(0)).current;
+  const numberScanAnim = useRef(new Animated.Value(0)).current;
+  const artScanAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (scanning) {
       sweepAnim.setValue(0);
-      rotateAnim.setValue(0);
       scaleAnim.setValue(1);
       gridAnim.setValue(0);
+      nameScanAnim.setValue(0);
+      numberScanAnim.setValue(0);
+      artScanAnim.setValue(0);
       
       // Sweep animation
       Animated.loop(
         Animated.timing(sweepAnim, {
           toValue: 1,
           duration: 1200,
-          useNativeDriver: true,
-        })
-      ).start();
-      
-      // Rotation animation
-      Animated.loop(
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 4000,
           useNativeDriver: true,
         })
       ).start();
@@ -69,6 +66,45 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
         })
       ).start();
       
+      // Region-specific scanning sequence
+      const scanSequence = Animated.sequence([
+        // Scan name region (top left)
+        Animated.timing(nameScanAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(nameScanAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        // Scan number region (bottom left)
+        Animated.timing(numberScanAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(numberScanAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        // Scan artwork region (center)
+        Animated.timing(artScanAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(artScanAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]);
+      
+      Animated.loop(scanSequence).start();
+      
       Animated.timing(glowAnim, {
         toValue: 1,
         duration: 250,
@@ -76,16 +112,13 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
       }).start();
     } else {
       sweepAnim.stopAnimation();
-      rotateAnim.stopAnimation();
       scaleAnim.stopAnimation();
       gridAnim.stopAnimation();
+      nameScanAnim.stopAnimation();
+      numberScanAnim.stopAnimation();
+      artScanAnim.stopAnimation();
       
       Animated.timing(sweepAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-      Animated.timing(rotateAnim, {
         toValue: 0,
         duration: 200,
         useNativeDriver: true,
@@ -100,13 +133,28 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
         duration: 200,
         useNativeDriver: true,
       }).start();
+      Animated.timing(nameScanAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(numberScanAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(artScanAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
       Animated.timing(glowAnim, {
         toValue: 0,
         duration: 250,
         useNativeDriver: true,
       }).start();
     }
-  }, [scanning, sweepAnim, glowAnim, rotateAnim, scaleAnim, gridAnim]);
+  }, [scanning, sweepAnim, glowAnim, scaleAnim, gridAnim, nameScanAnim, numberScanAnim, artScanAnim]);
 
   useEffect(() => {
     if (pulse) {
@@ -161,14 +209,28 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
   };
 
   const rotateStyle = {
-    transform: [
-      {
-        rotate: rotateAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: ['0deg', '360deg'],
-        }),
-      },
-    ],
+    opacity: 0,
+  };
+  
+  const nameScanStyle = {
+    opacity: nameScanAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 0.8],
+    }),
+  };
+  
+  const numberScanStyle = {
+    opacity: numberScanAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 0.8],
+    }),
+  };
+  
+  const artScanStyle = {
+    opacity: artScanAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 0.8],
+    }),
   };
 
   const scaleStyle = {
@@ -196,8 +258,15 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
   return (
     <View style={styles.wrap} pointerEvents="none">
       <Animated.View style={[styles.reticle, scaleStyle]}>
-        {/* Outer rotating ring */}
-        <Animated.View style={[styles.outerRing, { borderColor: bracketColor }, rotateStyle]} />
+        {/* Region-specific scanning indicators */}
+        {/* Name region scan (top left) */}
+        <Animated.View style={[styles.scanRegion, styles.nameRegion, nameScanStyle, { borderColor: bracketColor }]} />
+        
+        {/* Number region scan (bottom left) */}
+        <Animated.View style={[styles.scanRegion, styles.numberRegion, numberScanStyle, { borderColor: bracketColor }]} />
+        
+        {/* Artwork region scan (center) */}
+        <Animated.View style={[styles.scanRegion, styles.artRegion, artScanStyle, { borderColor: bracketColor }]} />
         
         {/* Scanning grid effect */}
         <Animated.View style={[styles.scanGrid, gridStyle]} />
@@ -267,7 +336,30 @@ const styles = StyleSheet.create({
     height: RETICLE_H + 20,
     borderWidth: 1,
     borderRadius: radius.md,
-    opacity: 0.3,
+    opacity: 0,
+  },
+  scanRegion: {
+    position: "absolute",
+    borderWidth: 2,
+    borderRadius: 4,
+  },
+  nameRegion: {
+    top: 10,
+    left: 10,
+    width: 80,
+    height: 30,
+  },
+  numberRegion: {
+    bottom: 10,
+    left: 10,
+    width: 80,
+    height: 30,
+  },
+  artRegion: {
+    top: 60,
+    left: 60,
+    width: 120,
+    height: 150,
   },
   scanGrid: {
     ...StyleSheet.absoluteFillObject,
