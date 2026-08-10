@@ -415,26 +415,26 @@ def _rank_candidate(c: dict, name: str, number: Optional[str], set_hint: Optiona
     
     # Exact name match is critical - give it much higher weight
     if card_name == name_lower:
-        score += 150  # Increased from 100
+        score += 200  # Increased from 150
     elif name_lower in card_name:
         # Partial match only gets points if it's a substantial part of the name
         if len(name_lower) >= 4 and len(name_lower) / len(card_name) >= 0.7:
-            score += 30  # Increased from 20
+            score += 40  # Increased from 30
         else:
             score += 5  # Minimal points for weak partial matches
     
     cn = _num_key(c.get("number"))
     if number and cn and cn == _num_key(number):
-        score += 120  # Increased from 80
+        score += 200  # Increased from 120 - number match is critical
     
     if set_hint:
         sh = set_hint.lower()
         sn = (c.get("set_name") or "").lower()
         if sh in sn or sn in sh:
-            score += 60  # Increased from 40
+            score += 100  # Increased from 60 - set match is very important
         toks = [t for t in sh.replace("&", " ").split() if len(t) > 2]
         if toks and any(t in sn for t in toks):
-            score += 25  # Increased from 15
+            score += 40  # Increased from 25
     
     # Remove price availability weight entirely - it was causing wrong matches
     # variants = c.get("variants") or []

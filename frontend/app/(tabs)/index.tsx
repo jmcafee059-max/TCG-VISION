@@ -150,11 +150,11 @@ export default function ScannerScreen() {
       setLockState((s) => (s === "locked" ? "locked" : "scanning"));
       setStatusMsg("Identifying card…");
 
-      // 1) Grab low-res frame from camera
+      // 1) Grab high-quality frame from camera for crystal clear scanning
       const pic = await cameraRef.current.takePictureAsync({
         base64: true,
-        quality: 0.25,
-        skipProcessing: true,
+        quality: 0.9,
+        skipProcessing: false,
         shutterSound: false,
       } as any);
       if (!pic?.base64) return;
