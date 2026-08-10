@@ -28,11 +28,27 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
   const numberSweepPos = useRef(new Animated.Value(0)).current;
   const artScanScale = useRef(new Animated.Value(0)).current;
   
-  // AI-like particle animations
-  const nameParticleX = useRef(new Animated.Value(0)).current;
-  const nameParticleY = useRef(new Animated.Value(0)).current;
-  const numberParticleX = useRef(new Animated.Value(0)).current;
-  const numberParticleY = useRef(new Animated.Value(0)).current;
+  // AI-like particle animations - multiple particles per region
+  const nameParticle1X = useRef(new Animated.Value(0)).current;
+  const nameParticle1Y = useRef(new Animated.Value(0)).current;
+  const nameParticle2X = useRef(new Animated.Value(0)).current;
+  const nameParticle2Y = useRef(new Animated.Value(0)).current;
+  const nameParticle3X = useRef(new Animated.Value(0)).current;
+  const nameParticle3Y = useRef(new Animated.Value(0)).current;
+  
+  const numberParticle1X = useRef(new Animated.Value(0)).current;
+  const numberParticle1Y = useRef(new Animated.Value(0)).current;
+  const numberParticle2X = useRef(new Animated.Value(0)).current;
+  const numberParticle2Y = useRef(new Animated.Value(0)).current;
+  const numberParticle3X = useRef(new Animated.Value(0)).current;
+  const numberParticle3Y = useRef(new Animated.Value(0)).current;
+  
+  const artParticle1X = useRef(new Animated.Value(0)).current;
+  const artParticle1Y = useRef(new Animated.Value(0)).current;
+  const artParticle2X = useRef(new Animated.Value(0)).current;
+  const artParticle2Y = useRef(new Animated.Value(0)).current;
+  const artParticle3X = useRef(new Animated.Value(0)).current;
+  const artParticle3Y = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (scanning) {
@@ -45,10 +61,24 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
       nameSweepPos.setValue(0);
       numberSweepPos.setValue(0);
       artScanScale.setValue(0);
-      nameParticleX.setValue(0);
-      nameParticleY.setValue(0);
-      numberParticleX.setValue(0);
-      numberParticleY.setValue(0);
+      nameParticle1X.setValue(0);
+      nameParticle1Y.setValue(0);
+      nameParticle2X.setValue(0);
+      nameParticle2Y.setValue(0);
+      nameParticle3X.setValue(0);
+      nameParticle3Y.setValue(0);
+      numberParticle1X.setValue(0);
+      numberParticle1Y.setValue(0);
+      numberParticle2X.setValue(0);
+      numberParticle2Y.setValue(0);
+      numberParticle3X.setValue(0);
+      numberParticle3Y.setValue(0);
+      artParticle1X.setValue(0);
+      artParticle1Y.setValue(0);
+      artParticle2X.setValue(0);
+      artParticle2Y.setValue(0);
+      artParticle3X.setValue(0);
+      artParticle3Y.setValue(0);
       
       // Sweep animation
       Animated.loop(
@@ -86,7 +116,7 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
       
       // Region-specific scanning sequence with AI-like particle motions
       const scanSequence = Animated.sequence([
-        // Scan name region (top left) - AI particle scanning
+        // Scan name region (top left) - AI particle scanning (3 particles)
         Animated.parallel([
           Animated.timing(nameScanAnim, {
             toValue: 1,
@@ -94,8 +124,16 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
             useNativeDriver: true,
           }),
           Animated.sequence([
-            Animated.timing(nameParticleX, { toValue: 1, duration: 200, useNativeDriver: true }),
-            Animated.timing(nameParticleY, { toValue: 1, duration: 200, useNativeDriver: true }),
+            Animated.timing(nameParticle1X, { toValue: 1, duration: 200, useNativeDriver: true }),
+            Animated.timing(nameParticle1Y, { toValue: 1, duration: 200, useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(nameParticle2X, { toValue: 1, duration: 200, useNativeDriver: true }),
+            Animated.timing(nameParticle2Y, { toValue: 1, duration: 200, useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(nameParticle3X, { toValue: 1, duration: 200, useNativeDriver: true }),
+            Animated.timing(nameParticle3Y, { toValue: 1, duration: 200, useNativeDriver: true }),
           ]),
         ]),
         Animated.parallel([
@@ -104,10 +142,14 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
             duration: 200,
             useNativeDriver: true,
           }),
-          Animated.timing(nameParticleX, { toValue: 0, duration: 200, useNativeDriver: true }),
-          Animated.timing(nameParticleY, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(nameParticle1X, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(nameParticle1Y, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(nameParticle2X, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(nameParticle2Y, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(nameParticle3X, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(nameParticle3Y, { toValue: 0, duration: 200, useNativeDriver: true }),
         ]),
-        // Scan number region (bottom left) - AI particle scanning
+        // Scan number region (bottom left) - AI particle scanning (3 particles)
         Animated.parallel([
           Animated.timing(numberScanAnim, {
             toValue: 1,
@@ -115,8 +157,16 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
             useNativeDriver: true,
           }),
           Animated.sequence([
-            Animated.timing(numberParticleX, { toValue: 1, duration: 200, useNativeDriver: true }),
-            Animated.timing(numberParticleY, { toValue: 1, duration: 200, useNativeDriver: true }),
+            Animated.timing(numberParticle1X, { toValue: 1, duration: 200, useNativeDriver: true }),
+            Animated.timing(numberParticle1Y, { toValue: 1, duration: 200, useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(numberParticle2X, { toValue: 1, duration: 200, useNativeDriver: true }),
+            Animated.timing(numberParticle2Y, { toValue: 1, duration: 200, useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(numberParticle3X, { toValue: 1, duration: 200, useNativeDriver: true }),
+            Animated.timing(numberParticle3Y, { toValue: 1, duration: 200, useNativeDriver: true }),
           ]),
         ]),
         Animated.parallel([
@@ -125,21 +175,32 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
             duration: 200,
             useNativeDriver: true,
           }),
-          Animated.timing(numberParticleX, { toValue: 0, duration: 200, useNativeDriver: true }),
-          Animated.timing(numberParticleY, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(numberParticle1X, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(numberParticle1Y, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(numberParticle2X, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(numberParticle2Y, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(numberParticle3X, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(numberParticle3Y, { toValue: 0, duration: 200, useNativeDriver: true }),
         ]),
-        // Scan artwork region (center) - outward expanding AI scan
+        // Scan artwork region (center) - AI particle scanning (3 particles)
         Animated.parallel([
           Animated.timing(artScanAnim, {
             toValue: 1,
             duration: 400,
             useNativeDriver: true,
           }),
-          Animated.timing(artScanScale, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
+          Animated.sequence([
+            Animated.timing(artParticle1X, { toValue: 1, duration: 200, useNativeDriver: true }),
+            Animated.timing(artParticle1Y, { toValue: 1, duration: 200, useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(artParticle2X, { toValue: 1, duration: 200, useNativeDriver: true }),
+            Animated.timing(artParticle2Y, { toValue: 1, duration: 200, useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(artParticle3X, { toValue: 1, duration: 200, useNativeDriver: true }),
+            Animated.timing(artParticle3Y, { toValue: 1, duration: 200, useNativeDriver: true }),
+          ]),
         ]),
         Animated.parallel([
           Animated.timing(artScanAnim, {
@@ -147,11 +208,12 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
             duration: 200,
             useNativeDriver: true,
           }),
-          Animated.timing(artScanScale, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }),
+          Animated.timing(artParticle1X, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(artParticle1Y, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(artParticle2X, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(artParticle2Y, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(artParticle3X, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(artParticle3Y, { toValue: 0, duration: 200, useNativeDriver: true }),
         ]),
       ]);
       
@@ -172,10 +234,24 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
       nameSweepPos.stopAnimation();
       numberSweepPos.stopAnimation();
       artScanScale.stopAnimation();
-      nameParticleX.stopAnimation();
-      nameParticleY.stopAnimation();
-      numberParticleX.stopAnimation();
-      numberParticleY.stopAnimation();
+      nameParticle1X.stopAnimation();
+      nameParticle1Y.stopAnimation();
+      nameParticle2X.stopAnimation();
+      nameParticle2Y.stopAnimation();
+      nameParticle3X.stopAnimation();
+      nameParticle3Y.stopAnimation();
+      numberParticle1X.stopAnimation();
+      numberParticle1Y.stopAnimation();
+      numberParticle2X.stopAnimation();
+      numberParticle2Y.stopAnimation();
+      numberParticle3X.stopAnimation();
+      numberParticle3Y.stopAnimation();
+      artParticle1X.stopAnimation();
+      artParticle1Y.stopAnimation();
+      artParticle2X.stopAnimation();
+      artParticle2Y.stopAnimation();
+      artParticle3X.stopAnimation();
+      artParticle3Y.stopAnimation();
       
       Animated.timing(sweepAnim, {
         toValue: 0,
@@ -222,22 +298,92 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
         duration: 200,
         useNativeDriver: true,
       }).start();
-      Animated.timing(nameParticleX, {
+      Animated.timing(nameParticle1X, {
         toValue: 0,
         duration: 200,
         useNativeDriver: true,
       }).start();
-      Animated.timing(nameParticleY, {
+      Animated.timing(nameParticle1Y, {
         toValue: 0,
         duration: 200,
         useNativeDriver: true,
       }).start();
-      Animated.timing(numberParticleX, {
+      Animated.timing(nameParticle2X, {
         toValue: 0,
         duration: 200,
         useNativeDriver: true,
       }).start();
-      Animated.timing(numberParticleY, {
+      Animated.timing(nameParticle2Y, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(nameParticle3X, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(nameParticle3Y, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(numberParticle1X, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(numberParticle1Y, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(numberParticle2X, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(numberParticle2Y, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(numberParticle3X, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(numberParticle3Y, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(artParticle1X, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(artParticle1Y, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(artParticle2X, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(artParticle2Y, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(artParticle3X, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(artParticle3Y, {
         toValue: 0,
         duration: 200,
         useNativeDriver: true,
@@ -248,7 +394,7 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
         useNativeDriver: true,
       }).start();
     }
-  }, [scanning, sweepAnim, glowAnim, scaleAnim, gridAnim, nameScanAnim, numberScanAnim, artScanAnim, nameSweepPos, numberSweepPos, artScanScale, nameParticleX, nameParticleY, numberParticleX, numberParticleY]);
+  }, [scanning, sweepAnim, glowAnim, scaleAnim, gridAnim, nameScanAnim, numberScanAnim, artScanAnim, nameSweepPos, numberSweepPos, artScanScale, nameParticle1X, nameParticle1Y, nameParticle2X, nameParticle2Y, nameParticle3X, nameParticle3Y, numberParticle1X, numberParticle1Y, numberParticle2X, numberParticle2Y, numberParticle3X, numberParticle3Y, artParticle1X, artParticle1Y, artParticle2X, artParticle2Y, artParticle3X, artParticle3Y]);
 
   useEffect(() => {
     if (pulse) {
@@ -360,16 +506,50 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
     ],
   };
   
-  const nameParticleStyle = {
+  const nameParticle1Style = {
     transform: [
       {
-        translateX: nameParticleX.interpolate({
+        translateX: nameParticle1X.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 20],
+        }),
+      },
+      {
+        translateY: nameParticle1Y.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 10],
+        }),
+      },
+    ],
+  };
+  
+  const nameParticle2Style = {
+    transform: [
+      {
+        translateX: nameParticle2X.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 40],
+        }),
+      },
+      {
+        translateY: nameParticle2Y.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 15],
+        }),
+      },
+    ],
+  };
+  
+  const nameParticle3Style = {
+    transform: [
+      {
+        translateX: nameParticle3X.interpolate({
           inputRange: [0, 1],
           outputRange: [0, 60],
         }),
       },
       {
-        translateY: nameParticleY.interpolate({
+        translateY: nameParticle3Y.interpolate({
           inputRange: [0, 1],
           outputRange: [0, 20],
         }),
@@ -377,18 +557,103 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
     ],
   };
   
-  const numberParticleStyle = {
+  const numberParticle1Style = {
     transform: [
       {
-        translateX: numberParticleX.interpolate({
+        translateX: numberParticle1X.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 20],
+        }),
+      },
+      {
+        translateY: numberParticle1Y.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -10],
+        }),
+      },
+    ],
+  };
+  
+  const numberParticle2Style = {
+    transform: [
+      {
+        translateX: numberParticle2X.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 40],
+        }),
+      },
+      {
+        translateY: numberParticle2Y.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -15],
+        }),
+      },
+    ],
+  };
+  
+  const numberParticle3Style = {
+    transform: [
+      {
+        translateX: numberParticle3X.interpolate({
           inputRange: [0, 1],
           outputRange: [0, 60],
         }),
       },
       {
-        translateY: numberParticleY.interpolate({
+        translateY: numberParticle3Y.interpolate({
           inputRange: [0, 1],
           outputRange: [0, -20],
+        }),
+      },
+    ],
+  };
+  
+  const artParticle1Style = {
+    transform: [
+      {
+        translateX: artParticle1X.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 30],
+        }),
+      },
+      {
+        translateY: artParticle1Y.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 30],
+        }),
+      },
+    ],
+  };
+  
+  const artParticle2Style = {
+    transform: [
+      {
+        translateX: artParticle2X.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -30],
+        }),
+      },
+      {
+        translateY: artParticle2Y.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 30],
+        }),
+      },
+    ],
+  };
+  
+  const artParticle3Style = {
+    transform: [
+      {
+        translateX: artParticle3X.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 0],
+        }),
+      },
+      {
+        translateY: artParticle3Y.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -30],
         }),
       },
     ],
@@ -420,19 +685,25 @@ export default function ReticleAnim({ scanning, pulse, lockState = "idle" }: Pro
     <View style={styles.wrap} pointerEvents="none">
       <Animated.View style={[styles.reticle, scaleStyle]}>
         {/* Region-specific AI-like scanning effects (no boxes) */}
-        {/* Name region scan (top left) - AI particle */}
+        {/* Name region scan (top left) - AI particles (3 small particles) */}
         <Animated.View style={[styles.nameRegion, nameScanStyle]}>
-          <Animated.View style={[styles.aiParticle, nameParticleStyle, { backgroundColor: bracketColor }]} />
+          <Animated.View style={[styles.aiParticle, nameParticle1Style, { backgroundColor: bracketColor }]} />
+          <Animated.View style={[styles.aiParticle, nameParticle2Style, { backgroundColor: bracketColor }]} />
+          <Animated.View style={[styles.aiParticle, nameParticle3Style, { backgroundColor: bracketColor }]} />
         </Animated.View>
         
-        {/* Number region scan (bottom left) - AI particle */}
+        {/* Number region scan (bottom left) - AI particles (3 small particles) */}
         <Animated.View style={[styles.numberRegion, numberScanStyle]}>
-          <Animated.View style={[styles.aiParticle, numberParticleStyle, { backgroundColor: bracketColor }]} />
+          <Animated.View style={[styles.aiParticle, numberParticle1Style, { backgroundColor: bracketColor }]} />
+          <Animated.View style={[styles.aiParticle, numberParticle2Style, { backgroundColor: bracketColor }]} />
+          <Animated.View style={[styles.aiParticle, numberParticle3Style, { backgroundColor: bracketColor }]} />
         </Animated.View>
         
-        {/* Artwork region scan (center) - outward expanding AI scan */}
+        {/* Artwork region scan (center) - AI particles (3 small particles) */}
         <Animated.View style={[styles.artRegion, artScanStyle]}>
-          <Animated.View style={[styles.expandRing, artScanScaleStyle, { borderColor: bracketColor }]} />
+          <Animated.View style={[styles.aiParticle, artParticle1Style, { backgroundColor: bracketColor }]} />
+          <Animated.View style={[styles.aiParticle, artParticle2Style, { backgroundColor: bracketColor }]} />
+          <Animated.View style={[styles.aiParticle, artParticle3Style, { backgroundColor: bracketColor }]} />
         </Animated.View>
         
         {/* Scanning grid effect */}
@@ -530,12 +801,12 @@ const styles = StyleSheet.create({
   },
   aiParticle: {
     position: "absolute",
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
     shadowColor: colors.brand,
     shadowOpacity: 0.8,
-    shadowRadius: 8,
+    shadowRadius: 4,
     shadowOffset: { width: 0, height: 0 },
   },
   sweepLine: {
@@ -561,7 +832,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderWidth: 1,
     borderStyle: "dashed",
-    opacity: 0.2,
+    opacity: 0,
   },
   glow: {
     ...StyleSheet.absoluteFillObject,
