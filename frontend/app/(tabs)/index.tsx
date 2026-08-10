@@ -529,18 +529,18 @@ export default function ScannerScreen() {
             />
           </BlurView>
         </Pressable>
-      </View>
-
-      {/* Reticle — centered on screen with sweep + pulse animation */}
-      <ReticleAnim scanning={scanning} pulse={pulseTick > 0} lockState={lockState} />
-      <View style={styles.statusWrap} pointerEvents="none">
-        <View style={styles.statusBadge}>
+        
+        {/* Status message below voice pill */}
+        <View style={styles.statusBadge} pointerEvents="none">
           {scanning && <ActivityIndicator size="small" color={colors.brand} />}
           <Text style={styles.statusText} testID="scan-status">
             {statusMsg}
           </Text>
         </View>
       </View>
+
+      {/* Reticle — centered on screen with sweep + pulse animation */}
+      <ReticleAnim scanning={scanning} pulse={pulseTick > 0} lockState={lockState} />
 
       {/* Side controls */}
       <View style={[styles.sideControls, { top: insets.top + 80 }]}>
