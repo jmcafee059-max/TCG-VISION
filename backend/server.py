@@ -191,7 +191,7 @@ class GradeEstimateResponse(BaseModel):
 
 
 # ---- Vision identification ----
-# Using OpenAI GPT-4o for vision
+# Using OpenAI GPT-4 Turbo for vision with region-specific scanning
 
 IDENTIFY_SYSTEM = (
     'You are a Pokemon TCG card identification expert. Your job is to identify cards from camera frames.\n'
@@ -199,7 +199,7 @@ IDENTIFY_SYSTEM = (
     '{\n'
     ' "detected": true|false,\n'
     ' "language": "english"|"japanese"|"other",\n'
-    ' "name_native": "the Pokemon name EXACTLY as printed at the top of the card (English or katakana/kanji)",\n'
+    ' "name_native": "the Pokemon name EXACTLY is printed at the top of the card (English or katakana/kanji)",\n'
     ' "name_english": "the OFFICIAL English Pokemon name matching the native name",\n'
     ' "set_hint": "EXACT set title printed on the card (e.g., \"Scarlet & Violet\", \"Obsidian Flames\", \"151\") - READ THIS CAREFULLY",\n'
     ' "set_code": "small set code near the number (e.g., S10D, SM12, XY7, base1) or null",\n'
@@ -208,7 +208,12 @@ IDENTIFY_SYSTEM = (
     ' "hp": "HP value printed on card (e.g., 120) or null",\n'
     ' "confidence": 0.0-1.0,\n'
     ' "reasoning": "brief explanation of your certainty"}\n\n'
-    "CRITICAL INSTRUCTIONS:\n"
+    "CRITICAL INSTRUCTIONS - REGION-SPECIFIC SCANNING:\n"
+    "- STEP 1: Focus on the TOP LEFT CORNER to read the Pokemon name EXACTLY as printed\n"
+    "- STEP 2: Focus on the BOTTOM LEFT CORNER to read the collector number (e.g., 058/102) and set code\n"
+    "- STEP 3: Focus on the BOTTOM RIGHT or CENTER to read the set name/logo\n"
+    "- STEP 4: Analyze the ARTWORK in the center to cross-reference with known Pokemon artwork\n"
+    "- STEP 5: Combine all information to identify the EXACT card from the EXACT set\n"
     "- If you see ANYTHING that looks like a Pokemon card, set detected=true\n"
     "- Be VERY lenient - even blurry/partial cards should be detected=true\n"
     "- If you can read ANY Pokemon name from the card, set detected=true with that name\n"
@@ -258,7 +263,7 @@ async def identify_card_with_vision(image_b64: str) -> dict:
     
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4-turbo",
             messages=[
                 {
                     "role": "system",
