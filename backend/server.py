@@ -687,27 +687,35 @@ async def scan_card(req: ScanRequest):
         set_hint=ident.get("set_hint"),
     )
 
-    # Image thumbnail: try PokemonTCG.io first, then TCGPlayer from JustTCG tcgplayerId
+    # Image thumbnail: prioritize TCGPlayer image from JustTCG match (correct set)
+    # then fall back to PokemonTCG.io (may return wrong set)
     image_url = None
-    try:
-        preferred_number = None
-        if result and result.get("match"):
-            preferred_number = result["match"].get("number")
-        image_url = await fetch_english_image(
-            name_en,
-            (preferred_number or ident.get("number")) if language == "english" else None,
-        )
-        if image_url:
-            logger.info(f"Using PokemonTCG.io image")
-    except Exception as e:
-        logger.warning(f"PokemonTCG.io image fetch failed: {e}")
-        image_url = None
-    
-    # Fallback to TCGPlayer image from JustTCG tcgplayerId
-    if not image_url and result and result.get("match"):
+    if result and result.get("match"):
         tcgplayer_id = result["match"].get("tcgplayerId")
         if tcgplayer_id:
-            image_url = await fetch_tcgplayer_image(tcgplayer_id)
+            try:
+                image_url = await fetch_tcgplayer_image(tcgplayer_id)
+                if image_url:
+                    logger.info(f"Using TCGPlayer image from JustTCG match")
+            except Exception as e:
+                logger.warning(f"TCGPlayer image fetch failed: {e}")
+                image_url = None
+    
+    # Fallback to PokemonTCG.io if TCGPlayer image unavailable
+    if not image_url:
+        try:
+            preferred_number = None
+            if result and result.get("match"):
+                preferred_number = result["match"].get("number")
+            image_url = await fetch_english_image(
+                name_en,
+                (preferred_number or ident.get("number")) if language == "english" else None,
+            )
+            if image_url:
+                logger.info(f"Using PokemonTCG.io image (fallback)")
+        except Exception as e:
+            logger.warning(f"PokemonTCG.io image fetch failed: {e}")
+            image_url = None
 
     display_name = name_en
     if language != "english" and name_native:
