@@ -265,7 +265,7 @@ async def identify_card_with_vision(image_b64: str) -> dict:
     
     try:
         response = await client.chat.completions.create(
-            model="openai/gpt-oss-20b",
+            model="openai/gpt-4o",
             messages=[
                 {
                     "role": "system",
