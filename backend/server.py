@@ -236,7 +236,9 @@ async def identify_card_with_vision(image_b64: str) -> dict:
     if not LLM_API_KEY:
         raise HTTPException(500, "LLM_API_KEY not configured")
 
-    client = AsyncOpenAI(api_key=LLM_API_KEY)
+    # Use OpenRouter base URL for OpenRouter API keys
+    base_url = "https://openrouter.ai/api/v1" if LLM_API_KEY.startswith("sk-or-v1") else None
+    client = AsyncOpenAI(api_key=LLM_API_KEY, base_url=base_url)
     
     # Clean base64: remove data URL prefix if present
     clean_b64 = image_b64
