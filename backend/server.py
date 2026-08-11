@@ -17,7 +17,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-import google.generativeai as genai
+from openai import AsyncOpenAI
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -30,7 +30,6 @@ LLM_API_KEY = (
     os.environ.get("LLM_API_KEY")
     or os.environ.get("OPENAI_API_KEY")
     or os.environ.get("OPENAI_KEY")
-    or os.environ.get("GEMINI_API_KEY")
     or ""
 )
 JUSTTCG_API_KEY = os.environ.get("JUSTTCG_API_KEY", "")
@@ -234,72 +233,49 @@ IDENTIFY_SYSTEM = (
 
 
 async def identify_card_with_vision(image_b64: str) -> dict:
-    """Send image to Gemini Vision model and parse JSON."""
+    """Send image to OpenAI Vision model and parse JSON."""
     if not LLM_API_KEY:
         raise HTTPException(500, "LLM_API_KEY not configured")
 
-    # Configure Gemini
-    genai.configure(api_key=LLM_API_KEY)
-    model = genai.GenerativeModel('gemini-pro-vision')
+    # Configure OpenAI
+    client = AsyncOpenAI(api_key=LLM_API_KEY)
     
     # Clean base64: remove data URL prefix if present
     clean_b64 = image_b64
     if "," in image_b64:
         clean_b64 = image_b64.split(",")[1]
     
-    # Ensure proper padding
-    import base64 as b64lib
-    clean_b64 = clean_b64.strip()
-    while len(clean_b64) % 4:
-        clean_b64 += "="
-    
-    # Validate base64
-    try:
-        b64lib.b64decode(clean_b64)
-    except Exception as e:
-        logger.error(f"Invalid base64 data: {e}")
-        return {"detected": False, "not_ready_reason": "Invalid image data"}
-    
-    # Convert base64 to bytes
-    image_bytes = b64lib.b64decode(clean_b64)
-    
-    logger.info(f"Sending vision request with image size: {len(image_bytes)} bytes")
+    logger.info(f"Sending vision request with image size: {len(clean_b64)} chars")
     
     try:
-        # Prepare the prompt with image - Gemini expects image as a dict with mime type
-        prompt = IDENTIFY_SYSTEM + "\n\nIdentify the Pokemon card in this frame. Read the printed name at the top of the card EXACTLY. Reply with JSON only per the schema."
-        
-        # Create a PIL Image from bytes
-        from PIL import Image
-        import io
-        image = Image.open(io.BytesIO(image_bytes))
-        
-        response = model.generate_content(
-            [prompt, image],
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=300,
-                temperature=0.1,
-            )
+        response = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": IDENTIFY_SYSTEM + "\n\nIdentify the Pokemon card in this frame. Read the printed name at the top of the card EXACTLY. Reply with JSON only per the schema."},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{clean_b64}"}}
+                    ]
+                }
+            ],
+            max_tokens=300,
+            temperature=0.1
         )
-        
-        raw = response.text
+        raw = response.choices[0].message.content
         if raw:
-            logger.info(f"Gemini response received: {raw[:200]}...")
+            logger.info(f"OpenAI response received: {raw[:200]}...")
     except Exception as e:
         logger.exception("Vision call failed")
         err = str(e).lower()
         logger.error(f"Error details: {err}")
-        if "quota" in err or "exceeded" in err:
+        if "quota" in err or "exceeded" in err or "insufficient_quota" in err:
             raise HTTPException(
                 status_code=402,
-                detail="llm_budget_exhausted: Gemini API quota exceeded.",
+                detail="llm_budget_exhausted: OpenAI API quota exceeded.",
             )
-        if "unsupported image" in err or "invalid_image_format" in err:
-            # Gemini rejected the image format
+        if "invalid_image" in err or "unsupported_image" in err:
             return {"detected": False, "not_ready_reason": "Image format error — try again"}
-        if "unable to process input image" in err or "invalid_argument" in err:
-            # Gemini rejected the image (bad format/glare/etc). Treat as no-card so UI can retry.
-            return {"detected": False, "not_ready_reason": "Bad image — retry with card centered"}
         raise HTTPException(502, f"vision_error: {e}")
 
     text = raw if isinstance(raw, str) else str(raw)
@@ -896,40 +872,41 @@ async def voice_chat(req: VoiceChatRequest):
     except Exception:
         ctx = ""
 
-    # Use Gemini for chat
-    genai.configure(api_key=LLM_API_KEY)
-    model = genai.GenerativeModel('gemini-pro')
+    client = AsyncOpenAI(api_key=LLM_API_KEY)
 
     prompt = req.text if not ctx else f"{ctx}\n\nUser: {req.text}"
     try:
-        response = model.generate_content(
-            VOICE_SYSTEM + "\n\n" + prompt,
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=500,
-                temperature=0.7,
-            )
+        response = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "system",
+                    "content": VOICE_SYSTEM
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            max_tokens=500
         )
-        result_text = response.text.strip()
+        result_text = response.choices[0].message.content.strip()
     except Exception as e:
         logger.exception("chat failed")
         raise HTTPException(502, f"chat_error: {e}")
 
-    # TTS - Note: Gemini doesn't have TTS, so this will be disabled unless OpenAI key is available
-    audio_b64 = None
-    openai_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI_KEY")
-    if openai_key:
-        try:
-            client = AsyncOpenAI(api_key=openai_key)
-            response = await client.audio.speech.create(
-                model="tts-1",
-                voice=(req.voice or "nova"),
-                input=result_text[:4000],
-                response_format="mp3"
-            )
-            audio_b64 = base64.b64encode(response.content).decode("utf-8")
-        except Exception:
-            logger.exception("tts failed")
-            audio_b64 = None
+    # TTS
+    try:
+        response = await client.audio.speech.create(
+            model="tts-1",
+            voice=(req.voice or "nova"),
+            input=result_text[:4000],
+            response_format="mp3"
+        )
+        audio_b64 = base64.b64encode(response.content).decode("utf-8")
+    except Exception:
+        logger.exception("tts failed")
+        audio_b64 = None
 
     return {"reply": result_text, "audio_base64": audio_b64, "mime": "audio/mpeg"}
 
