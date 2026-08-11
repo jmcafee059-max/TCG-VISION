@@ -240,7 +240,7 @@ async def identify_card_with_vision(image_b64: str) -> dict:
 
     # Configure Gemini
     genai.configure(api_key=LLM_API_KEY)
-    model = genai.GenerativeModel('gemini-pro')
+    model = genai.GenerativeModel('gemini-pro-vision')
     
     # Clean base64: remove data URL prefix if present
     clean_b64 = image_b64
