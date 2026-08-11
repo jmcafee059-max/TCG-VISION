@@ -538,8 +538,8 @@ export default function ScannerScreen() {
         </View>
       </View>
 
-      {/* Reticle — centered on screen with sweep + pulse animation */}
-      <ReticleAnim scanning={scanning} pulse={pulseTick > 0} lockState={lockState} />
+      {/* Reticle — temporarily disabled for crystal clear 4K quality */}
+      {/* <ReticleAnim scanning={scanning} pulse={pulseTick > 0} lockState={lockState} /> */}
 
       {/* Side controls */}
       <View style={[styles.sideControls, { top: insets.top + 80 }]}>
