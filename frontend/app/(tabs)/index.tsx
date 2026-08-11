@@ -280,9 +280,8 @@ export default function ScannerScreen() {
     if (!settingsReady) return;
     const configured = settings.autoScanIntervalSec; // 0 = OFF
     if (!configured || !camPerm?.granted) return;
-    // Fixed 3s cadence — captureAndScan's own guard prevents overlap, and the
-    // internal "instant re-scan on candidate" handles fast-track locking.
-    const ms = Math.max(configured * 1000, 2500);
+    // Increased minimum delay to 8s to avoid OpenAI rate limiting (429 errors)
+    const ms = Math.max(configured * 1000, 8000);
     const t = setInterval(() => {
       captureAndScan();
     }, ms);
