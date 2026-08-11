@@ -266,11 +266,16 @@ async def identify_card_with_vision(image_b64: str) -> dict:
     logger.info(f"Sending vision request with image size: {len(image_bytes)} bytes")
     
     try:
-        # Prepare the prompt with image
+        # Prepare the prompt with image - Gemini expects image as a dict with mime type
         prompt = IDENTIFY_SYSTEM + "\n\nIdentify the Pokemon card in this frame. Read the printed name at the top of the card EXACTLY. Reply with JSON only per the schema."
         
+        # Create a PIL Image from bytes
+        from PIL import Image
+        import io
+        image = Image.open(io.BytesIO(image_bytes))
+        
         response = model.generate_content(
-            [prompt, image_bytes],
+            [prompt, image],
             generation_config=genai.types.GenerationConfig(
                 max_output_tokens=300,
                 temperature=0.1,
