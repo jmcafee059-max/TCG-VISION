@@ -240,7 +240,7 @@ async def identify_card_with_vision(image_b64: str) -> dict:
 
     # Configure Gemini
     genai.configure(api_key=LLM_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-1.5-pro')
     
     # Clean base64: remove data URL prefix if present
     clean_b64 = image_b64
@@ -898,7 +898,7 @@ async def voice_chat(req: VoiceChatRequest):
 
     # Use Gemini for chat
     genai.configure(api_key=LLM_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-1.5-pro')
 
     prompt = req.text if not ctx else f"{ctx}\n\nUser: {req.text}"
     try:
