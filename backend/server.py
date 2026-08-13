@@ -1098,6 +1098,11 @@ async def add_to_collection(req: AddToCollectionRequest):
             added_at=datetime.now(timezone.utc).isoformat(),
         )
         _collection_memory[key] = item
+        
+        # Track scanned set for binder creation
+        if req.set_name:
+            _scanned_sets[req.set_name] = tot or 100  # Use total_in_set or default to 100
+        
         return item
 
 
